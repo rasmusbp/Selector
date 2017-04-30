@@ -1,0 +1,23 @@
+{
+  "name": "selector",
+  "version": "0.9.0",
+  "description": "Abstraction to centralize common selection patterns",
+  "main": "./dist/index.js",
+  "scripts": {
+    "test": "mocha ./test.ts --require ts-node/register",
+    "testDev": "mocha ./test.ts --require ts-node/register --watch",
+    "build": "npm test && rollup -c",
+    "precommit": "npm test"
+  },
+  "author": "Rasmus Bangsted Pedersen",
+  "license": "ISC",
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "husky": "^0.13.3",
+    "mocha": "^3.3.0",
+    "rollup": "^0.41.6",
+    "rollup-plugin-typescript": "^0.8.1",
+    "ts-node": "^3.0.2",
+    "typescript": "^2.3.2"
+  }
+}
