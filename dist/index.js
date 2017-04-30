@@ -4,87 +4,91 @@
 	(factory((global.StatefulSelector = global.StatefulSelector || {})));
 }(this, (function (exports) { 'use strict';
 
-var DeveloperMessage = (function () {
-    function DeveloperMessage(message) {
-        var args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            args[_i - 1] = arguments[_i];
-        }
+class Logger {
+    constructor(message, ...args) {
         this.message = message;
-        this.args = args.slice();
+        this.args = [...args];
     }
-    DeveloperMessage.prototype.print = function (_a) {
-        var level = _a.level;
+    print({ level }) {
         switch (level) {
             case 'throw':
                 throw new Error(this.message + JSON.stringify(this.args));
             case 'soft_throw':
-                console.error.apply(console, [this.message].concat(this.args));
+                console.error(this.message, ...this.args);
                 break;
             case 'warn':
-                console.warn.apply(console, [this.message].concat(this.args));
+                console.warn(this.message, ...this.args);
                 break;
             case 'log':
-                console.log.apply(console, [this.message].concat(this.args));
+                console.log(this.message, ...this.args);
                 break;
             default:
-                console.log.apply(console, [this.message].concat(this.args));
+                console.log(this.message, ...this.args);
                 break;
         }
         return this;
-    };
-    return DeveloperMessage;
-}());
+    }
+}
 
 var errors = {
-    NO_ITEM: function (context) { return (context + " --> item does not exist."); },
-    ALREADY_EXIST: function (context) { return (context + " --> item already exist."); },
-    ALREADY_SELECTED: function (context) { return (context + " --> item is already selected."); },
-    ALREADY_DESELECTED: function (context) { return (context + " --> item is already deselected."); },
-    INVALID_TYPE: function (context) { return (context + " --> item must be of same type."); },
-    INVALID_OBSERVER: function () { return "subscribe --> observer is not a function."; },
-    INVALID_STATE: function (context) { return (context + " --> provided state is not valid. \n                    Make sure to provide valid 'items' and 'selections' arrays."); }
+    NO_ITEM: context => `${context} --> item does not exist.`,
+    ALREADY_EXIST: context => `${context} --> item already exist.`,
+    ALREADY_SELECTED: context => `${context} --> item is already selected.`,
+    ALREADY_DESELECTED: context => `${context} --> item is already deselected.`,
+    INVALID_TYPE: context => `${context} --> item must be of same type.`,
+    INVALID_OBSERVER: () => `subscribe --> observer is not a function.`,
+    INVALID_STATE: context => `${context} --> provided state is not valid. 
+                    Make sure to provide valid 'items' and 'selections' arrays.`,
 };
 
-function flatten(arr) {
-    return !Array.isArray(arr) ? [arr] : arr.reduce(function (acc, item) { return acc.concat(flatten(item)); }, []);
+class SelectorError {
+    constructor(message, item) {
+        this.error = new Error(message);
+        this.item = item;
+    }
 }
-function getDeveloperMessage(_a) {
-    var err = _a.err, _b = _a.details, details = _b === void 0 ? undefined : _b, _c = _a.strict, strict = _c === void 0 ? true : _c, _d = _a.context, context = _d === void 0 ? 'Selector' : _d;
-    var errFn = errors[err] || (function () { return 'null'; });
-    return new DeveloperMessage("Selector@" + errFn(context), details);
+
+function flatten(arr) {
+    return !Array.isArray(arr) ? [arr] : arr.reduce((acc, item) => [
+        ...acc,
+        ...flatten(item)
+    ], []);
+}
+function logger({ err, details = undefined, strict = true, context = 'Selector', }) {
+    const errFn = errors[err] || (() => 'null');
+    return new Logger(`Selector@${errFn(context)}`, details);
 }
 function getChangeErrors(changes) {
-    var errors$$1 = Object.keys(changes).reduce(function (errors$$1, action) {
-        return errors$$1.concat(changes[action].filter(function (change) { return change instanceof DeveloperMessage; }));
+    const errors$$1 = Object.keys(changes).reduce((errors$$1, action) => {
+        return [...errors$$1, ...changes[action].filter(change => change instanceof SelectorError)];
     }, []);
     return errors$$1.length ? errors$$1 : undefined;
 }
-function has(item, privates) {
-    var itemsMap = privates.itemsMap, resolveKey = privates.resolveKey;
+function has(item, internals) {
+    const { itemsMap, resolveKey } = internals;
     return itemsMap.has(resolveKey(item));
 }
-function isSelected(items, privates) {
-    var selectionsMap = privates.selectionsMap, resolveKey = privates.resolveKey;
+function isSelected(items, internals) {
+    const { selectionsMap, resolveKey } = internals;
     if (selectionsMap.size === 0)
         return false;
-    return items.every(function (item) { return selectionsMap.has(resolveKey(item)); });
+    return items.every(item => selectionsMap.has(resolveKey(item)));
 }
-function isSomeSelected(items, privates) {
-    var selectionsMap = privates.selectionsMap, resolveKey = privates.resolveKey;
+function isSomeSelected(items, internals) {
+    const { selectionsMap, resolveKey } = internals;
     if (selectionsMap.size === 0)
         return false;
-    return items.some(function (item) { return selectionsMap.has(resolveKey(item)); });
+    return items.some(item => selectionsMap.has(resolveKey(item)));
 }
-function addTo(map, items, privates) {
-    var resolveKey = privates.resolveKey, config = privates.config;
-    return items.reduce(function (hits, item) {
-        if (item instanceof DeveloperMessage) {
+function addTo(map, items, internals) {
+    const { resolveKey, config } = internals;
+    return items.reduce((hits, item) => {
+        if (item instanceof SelectorError) {
             hits.push(item);
             return hits;
         }
-        var key = resolveKey(item);
-        var hasItem = !map.has(key);
+        const key = resolveKey(item);
+        const hasItem = !map.has(key);
         if (hasItem) {
             map.set(key, item);
             hits.push(item);
@@ -92,56 +96,54 @@ function addTo(map, items, privates) {
         return hits;
     }, []);
 }
-function removeFrom(map, items, privates) {
-    var resolveKey = privates.resolveKey, config = privates.config;
-    return items.reduce(function (hits, item) {
-        if (item instanceof DeveloperMessage) {
+function removeFrom(map, items, internals) {
+    const { resolveKey, config } = internals;
+    return items.reduce((hits, item) => {
+        if (item instanceof SelectorError) {
             hits.push(item);
             return hits;
         }
-        var key = resolveKey(item);
-        var wasRemoved = map.delete(key);
+        const key = resolveKey(item);
+        const wasRemoved = map.delete(key);
         if (wasRemoved) {
             hits.push(item);
         }
         return hits;
     }, []);
 }
-function dispatch(changes, privates) {
-    var _this = this;
-    var subscriptions = privates.subscriptions, noopChanges = privates.noopChanges, config = privates.config;
-    var state = this.state;
-    var errors$$1 = config.strict && getChangeErrors(changes);
-    subscriptions.forEach(function (observers) {
-        var args = [Object.assign(noopChanges, changes), state, _this];
+function dispatch(changes, state, internals) {
+    const { subscriptions, noopChanges, config } = internals;
+    const errors$$1 = config.strict && getChangeErrors(changes);
+    subscriptions.forEach((observers) => {
+        const args = [Object.assign(noopChanges, changes), state, this];
         if (errors$$1) {
-            observers.error.apply(observers, [errors$$1].concat(args));
+            observers.error(errors$$1, ...args);
             return;
         }
-        observers.success.apply(observers, args);
+        observers.success(...args);
     });
 }
-function resolveItems(input, context, privates) {
-    var itemsMap = privates.itemsMap;
+function resolveItems(input, context, internals) {
+    const { itemsMap } = internals;
     if (typeof input === 'function') {
-        var predicate_1 = input;
-        return this.state.items.reduce(function (hits, item, index) {
-            if (predicate_1(item, index) === true) {
+        const predicate = input;
+        return this.state.items.reduce((hits, item, index) => {
+            if (predicate(item, index) === true) {
                 hits.push(item);
             }
             return hits;
         }, []);
     }
-    var resolveKey = privates.resolveKey, config = privates.config;
-    var normalizedInput = flatten([input]);
-    var filter = function (inp) {
-        return inp.reduce(function (acc, item) {
-            var key = resolveKey(item);
-            var hasItem = itemsMap.has(key);
+    const { resolveKey, config } = internals;
+    const normalizedInput = flatten([input]);
+    const filter = (inp) => {
+        return inp.reduce((acc, item) => {
+            const key = resolveKey(item);
+            const hasItem = itemsMap.has(key);
             if (!hasItem && config.strict) {
-                var error = getDeveloperMessage({ err: 'NO_ITEM', context, details: item });
-                error.print({ level: 'warn' });
-                acc.push(error);
+                const log = logger({ err: 'NO_ITEM', context, details: item });
+                log.print({ level: 'warn' });
+                acc.push(new SelectorError(log.message, item));
             }
             else {
                 acc.push(itemsMap.get(key));
@@ -151,8 +153,8 @@ function resolveItems(input, context, privates) {
     };
     return filter(normalizedInput);
 }
-function resolveKey(item, privates) {
-    var trackBy = privates.config.trackBy;
+function resolveKey(item, internals) {
+    const { trackBy } = internals.config;
     if (!trackBy || (typeof item !== 'object' && item !== null)) {
         return item;
     }
@@ -163,268 +165,204 @@ function resolveKey(item, privates) {
 }
 function createStateGetter(state, context) {
     if (!state) {
-        getDeveloperMessage({ err: 'INVALID_STATE', context }).print({ level: 'throw' });
+        logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' });
     }
     if (Array.isArray(state)) {
         return {
-            get: function () { return ({
+            get: () => ({
                 items: state,
                 selections: []
-            }); }
+            })
         };
     }
-    var isCorrectSchema = function () { return ([
+    const isCorrectSchema = () => ([
         typeof state === 'object',
         Array.isArray(state.items),
         Array.isArray(state.selections)
-    ]).every(function (condition) { return condition; }); };
+    ]).every(condition => condition);
     if (!isCorrectSchema()) {
         return {
-            get: function () { return getDeveloperMessage({ err: 'INVALID_STATE', context }).print({ level: 'throw' }); }
+            get: () => logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' })
         };
     }
     return {
-        get: function () { return state; }
+        get: () => state
     };
 }
 
-var privates = new WeakMap();
-var ADDED = 'added';
-var REMOVED = 'removed';
-var SELECTED = 'selected';
-var DESELECTED = 'deSelected';
-var Selector$1 = (function () {
-    function Selector(initialState, config) {
-        var _this = this;
-        if (initialState === void 0) { initialState = {
+const privates = new WeakMap();
+const ADDED = 'added';
+const REMOVED = 'removed';
+const SELECTED = 'selected';
+const DESELECTED = 'deSelected';
+class Selector$1 {
+    constructor(initialState = {
             items: [],
             selections: []
-        }; }
-        if (config === void 0) { config = {}; }
+        }, config = {}) {
         privates.set(this, {
             initialStateGetter: createStateGetter(initialState, 'initialStateGetter'),
             itemsMap: new Map(),
             selectionsMap: new Map(),
             subscriptions: new Set(),
             get noopChanges() {
-                return (_a = {},
-                    _a[ADDED] = [],
-                    _a[SELECTED] = [],
-                    _a[DESELECTED] = [],
-                    _a[REMOVED] = [],
-                    _a
-                );
-                var _a;
+                return {
+                    [ADDED]: [],
+                    [SELECTED]: [],
+                    [DESELECTED]: [],
+                    [REMOVED]: []
+                };
             },
             createStateGetter: createStateGetter.bind(this),
-            resolveItems: function () {
-                var args = [];
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    args[_i - 0] = arguments[_i];
-                }
-                return resolveItems.call.apply(resolveItems, [_this].concat(args, [privates.get(_this)]));
-            },
-            resolveKey: function () {
-                var args = [];
-                for (var _i = 0; _i < arguments.length; _i++) {
-                    args[_i - 0] = arguments[_i];
-                }
-                return resolveKey.call.apply(resolveKey, [_this].concat(args, [privates.get(_this)]));
-            },
+            resolveItems: (items, context) => resolveItems(items, context, privates.get(this)),
+            resolveKey: (item) => resolveKey(item, privates.get(this)),
             operators: {
-                has: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return has.call.apply(has, [_this].concat(args, [privates.get(_this)]));
+                has: (item) => has(item, privates.get(this)),
+                addTo: (map, items) => addTo(map, items, privates.get(this)),
+                removeFrom: (map, items) => removeFrom(map, items, privates.get(this)),
+                dispatch: (changes) => {
+                    dispatch(changes, this.state, privates.get(this));
                 },
-                addTo: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return addTo.call.apply(addTo, [_this].concat(args, [privates.get(_this)]));
-                },
-                removeFrom: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return removeFrom.call.apply(removeFrom, [_this].concat(args, [privates.get(_this)]));
-                },
-                dispatch: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return dispatch.call.apply(dispatch, [_this].concat(args, [privates.get(_this)]));
-                },
-                isSelected: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return isSelected.call.apply(isSelected, [_this].concat(args, [privates.get(_this)]));
-                },
-                isSomeSelected: function () {
-                    var args = [];
-                    for (var _i = 0; _i < arguments.length; _i++) {
-                        args[_i - 0] = arguments[_i];
-                    }
-                    return isSomeSelected.call.apply(isSomeSelected, [_this].concat(args, [privates.get(_this)]));
-                }
+                isSelected: (items) => isSelected(items, privates.get(this)),
+                isSomeSelected: (items) => isSomeSelected(items, privates.get(this)),
             },
             config: Object.assign({
                 trackBy: undefined,
                 strict: true,
-                validators: [function () { return true; }],
-                serializer: function (input) { return input; }
-            }, config)
+                validators: [() => true],
+                serializer: input => input
+            }, config),
         });
         // kick it all off!
-        var initialStateGetter = privates.get(this).initialStateGetter;
+        const { initialStateGetter } = privates.get(this);
         this.setState(initialStateGetter.get());
     }
-    Selector.prototype.subscribe = function (successObserver, errorObserver) {
-        var _this = this;
-        var subscriptions = privates.get(this).subscriptions;
+    subscribe(successObserver, errorObserver) {
+        const { subscriptions } = privates.get(this);
         if ((!successObserver || typeof successObserver !== 'function') ||
             (errorObserver && typeof errorObserver !== 'function')) {
-            getDeveloperMessage({ err: 'INVALID_OBSERVER' }).print({ level: 'throw' });
+            logger({ err: 'INVALID_OBSERVER' }).print({ level: 'throw' });
         }
-        var observers = {
+        const observers = {
             success: successObserver,
             error: errorObserver
         };
         subscriptions.add(observers);
-        return function () {
+        return () => {
             subscriptions.delete(observers);
-            return _this;
+            return this;
         };
-    };
-    Selector.prototype.select = function (input) {
-        return this.patch((_a = {},
-            _a[SELECTED] = input,
-            _a
-        ));
-        var _a;
-    };
-    Selector.prototype.deSelect = function (input) {
-        return this.patch((_a = {},
-            _a[DESELECTED] = input,
-            _a
-        ));
-        var _a;
-    };
-    Selector.prototype.selectAll = function () {
+    }
+    select(input) {
+        return this.patch({
+            [SELECTED]: input
+        });
+    }
+    deSelect(input) {
+        return this.patch({
+            [DESELECTED]: input
+        });
+    }
+    selectAll(input) {
         return this.deSelectAll().select(this.state.items);
-    };
-    Selector.prototype.deSelectAll = function () {
+    }
+    deSelectAll() {
         return this.deSelect(this.state.selections);
-    };
-    Selector.prototype.invert = function () {
+    }
+    invert() {
         return this.toggle(this.state.items);
-    };
-    Selector.prototype.toggle = function (input) {
-        var _this = this;
-        var changes = flatten([input]).reduce(function (acc, item) {
-            if (_this.isSelected(item)) {
+    }
+    toggle(input) {
+        const changes = flatten([input]).reduce((acc, item) => {
+            if (this.isSelected(item)) {
                 acc[DESELECTED].push(item);
             }
             else {
                 acc[SELECTED].push(item);
             }
             return acc;
-        }, (_a = {}, _a[SELECTED] = [], _a[DESELECTED] = [], _a));
+        }, { [SELECTED]: [], [DESELECTED]: [] });
         return this.patch(changes);
-        var _a;
-    };
-    Selector.prototype.add = function (input) {
-        return this.patch((_a = {},
-            _a[ADDED] = flatten([input]),
-            _a
-        ));
-        var _a;
-    };
-    Selector.prototype.remove = function (input) {
-        return this.patch((_a = {},
-            _a[REMOVED] = input,
-            _a
-        ));
-        var _a;
-    };
-    Selector.prototype.removeAll = function () {
+    }
+    add(input) {
+        return this.patch({
+            [ADDED]: flatten([input])
+        });
+    }
+    remove(input) {
+        return this.patch({
+            [REMOVED]: input
+        });
+    }
+    removeAll() {
         return this.remove(this.state.items);
-    };
-    Selector.prototype.reset = function () {
-        var initialStateGetter = privates.get(this).initialStateGetter;
+    }
+    reset() {
+        const { initialStateGetter } = privates.get(this);
         return this.setState(initialStateGetter.get());
-    };
-    Selector.prototype.isOnlySelected = function (input) {
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems;
-        var items = resolveItems$$1(input, 'isOnlySelected');
+    }
+    isOnlySelected(input) {
+        const { operators, resolveItems: resolveItems$$1 } = privates.get(this);
+        const items = resolveItems$$1(input, 'isOnlySelected');
         return operators.isSelected(items)
             && this.state.selections.length === items.length;
-    };
-    Selector.prototype.isSelected = function (input) {
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems;
+    }
+    isSelected(input) {
+        const { operators, resolveItems: resolveItems$$1 } = privates.get(this);
         return operators.isSelected(resolveItems$$1(input, 'isSelected'));
-    };
-    Selector.prototype.isSomeSelected = function (input) {
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems;
+    }
+    isSomeSelected(input) {
+        const { operators, resolveItems: resolveItems$$1 } = privates.get(this);
         return operators.isSomeSelected(resolveItems$$1(input, 'isSomeSelected'));
-    };
-    Selector.prototype.has = function (input) {
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems;
+    }
+    has(input) {
+        const { operators, resolveItems: resolveItems$$1 } = privates.get(this);
         return operators.has(resolveItems$$1(input, 'has')[0]);
-    };
-    Selector.prototype.swap = function (input, newItem) {
-        var _a = privates.get(this), operators = _a.operators, itemsMap = _a.itemsMap, selectionsMap = _a.selectionsMap, resolveItems$$1 = _a.resolveItems, resolveKey$$1 = _a.resolveKey;
+    }
+    swap(input, newItem) {
+        const { operators, itemsMap, selectionsMap, resolveItems: resolveItems$$1, resolveKey: resolveKey$$1 } = privates.get(this);
         if (!this.has(input)) {
-            throw new Error("Selector#swap -> cannot swap non-existing item");
+            throw new Error(`Selector#swap -> cannot swap non-existing item`);
         }
-        var itemToReplace = resolveItems$$1(input)[0];
-        var key = resolveKey$$1(input);
+        const itemToReplace = resolveItems$$1(input)[0];
+        const key = resolveKey$$1(input);
         if (this.isSelected(itemToReplace)) {
             selectionsMap.set(key, newItem);
         }
         itemsMap.set(key, newItem);
-        operators.dispatch((_b = {},
-            _b[ADDED] = [itemsMap.get(key)],
-            _b[REMOVED] = [itemToReplace],
-            _b
-        ));
+        operators.dispatch({
+            [ADDED]: [itemsMap.get(key)],
+            [REMOVED]: [itemToReplace]
+        });
         return this;
-        var _b;
-    };
-    Selector.prototype.setState = function (newState) {
-        var state = this.state;
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems, itemsMap = _a.itemsMap, selectionsMap = _a.selectionsMap, createStateGetter$$1 = _a.createStateGetter;
-        var validatedState = createStateGetter$$1(newState, 'setState').get();
-        var deSelected = operators.removeFrom(selectionsMap, state.items);
-        var removed = operators.removeFrom(itemsMap, state.items);
-        var added = operators.addTo(itemsMap, validatedState.items);
-        var selected = operators.addTo(selectionsMap, resolveItems$$1(validatedState.selections, 'setState'));
+    }
+    setState(newState) {
+        const { state } = this;
+        const { operators, resolveItems: resolveItems$$1, itemsMap, selectionsMap, createStateGetter: createStateGetter$$1, } = privates.get(this);
+        const validatedState = createStateGetter$$1(newState, 'setState').get();
+        const deSelected = operators.removeFrom(selectionsMap, state.items);
+        const removed = operators.removeFrom(itemsMap, state.items);
+        const added = operators.addTo(itemsMap, validatedState.items);
+        const selected = operators.addTo(selectionsMap, resolveItems$$1(validatedState.selections, 'setState'));
         operators.dispatch({ deSelected, selected, removed, added });
         return this;
-    };
-    Selector.prototype.patch = function (appliedPatch) {
-        var _a = privates.get(this), operators = _a.operators, resolveItems$$1 = _a.resolveItems, itemsMap = _a.itemsMap, selectionsMap = _a.selectionsMap, noopChanges = _a.noopChanges, config = _a.config;
-        var orderOfActions = [ADDED, SELECTED, REMOVED, DESELECTED];
-        var changes = Object.assign(noopChanges, appliedPatch);
-        var logLevel = 'warn';
-        var validatedChanges = orderOfActions.reduce(function (acc, action) {
+    }
+    patch(appliedPatch) {
+        const { operators, resolveItems: resolveItems$$1, itemsMap, selectionsMap, noopChanges, config, } = privates.get(this);
+        const orderOfActions = [ADDED, SELECTED, REMOVED, DESELECTED];
+        const changes = Object.assign(noopChanges, appliedPatch);
+        const logLevel = 'warn';
+        const validatedChanges = orderOfActions.reduce((acc, action) => {
             switch (action) {
                 case REMOVED:
                     acc[REMOVED] = operators.removeFrom(itemsMap, resolveItems$$1(changes[REMOVED], REMOVED));
                     break;
                 case DESELECTED:
-                    var deSelectedItems = resolveItems$$1(changes[DESELECTED], DESELECTED)
-                        .map(function (item) {
+                    const deSelectedItems = resolveItems$$1(changes[DESELECTED], DESELECTED)
+                        .map((item) => {
                         if (!config.strict || operators.isSelected([item]))
                             return item;
-                        return getDeveloperMessage({
+                        return logger({
                             err: 'ALREADY_DESELECTED',
                             context: DESELECTED,
                             details: item
@@ -433,11 +371,11 @@ var Selector$1 = (function () {
                     acc[DESELECTED] = operators.removeFrom(selectionsMap, deSelectedItems);
                     break;
                 case ADDED:
-                    var newItems = changes[ADDED]
-                        .map(function (item) {
+                    const newItems = changes[ADDED]
+                        .map((item) => {
                         if (!config.strict || !operators.has(item))
                             return item;
-                        return getDeveloperMessage({
+                        return logger({
                             err: 'ALREADY_EXIST',
                             context: ADDED,
                             details: item
@@ -446,11 +384,11 @@ var Selector$1 = (function () {
                     acc[ADDED] = operators.addTo(itemsMap, newItems);
                     break;
                 case SELECTED:
-                    var selectedItems = resolveItems$$1(changes[SELECTED], SELECTED)
-                        .map(function (item) {
+                    const selectedItems = resolveItems$$1(changes[SELECTED], SELECTED)
+                        .map((item) => {
                         if (!config.strict || !operators.isSelected([item]))
                             return item;
-                        return getDeveloperMessage({
+                        return logger({
                             err: 'ALREADY_SELECTED',
                             context: SELECTED,
                             details: item
@@ -463,70 +401,47 @@ var Selector$1 = (function () {
             }
             return acc;
         }, {});
-        var hasChanged = Object.keys(validatedChanges).some(function (action) { return validatedChanges[action].length; });
+        const hasChanged = Object.keys(validatedChanges).some(action => validatedChanges[action].length);
         if (hasChanged) {
             operators.dispatch(validatedChanges);
         }
         return this;
-    };
-    Selector.prototype.replay = function (patches) {
-        var _this = this;
-        patches.forEach(function (patch) { return _this.patch(patch); });
+    }
+    replay(patches) {
+        patches.forEach(patch => this.patch(patch));
         return this;
-    };
-    Selector.prototype.unsubscribeAll = function () {
-        var subscriptions = privates.get(this).subscriptions;
+    }
+    unsubscribeAll() {
+        const { subscriptions } = privates.get(this);
         subscriptions.clear();
         return this;
-    };
-    Selector.prototype.serialize = function () {
-        var args = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            args[_i - 0] = arguments[_i];
-        }
-        var serializer = privates.get(this).config.serializer;
-        return serializer.apply(void 0, [this.state.selections].concat(args));
-    };
-    Object.defineProperty(Selector.prototype, "state", {
-        get: function () {
-            var _a = privates.get(this), selectionsMap = _a.selectionsMap, itemsMap = _a.itemsMap;
-            return {
-                items: Array.from(itemsMap.values()),
-                selections: Array.from(selectionsMap.values())
-            };
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Selector.prototype, "hasSelections", {
-        get: function () {
-            var selectionsMap = privates.get(this).selectionsMap;
-            return Boolean(selectionsMap.size);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Selector.prototype, "isAllSelected", {
-        get: function () {
-            return this.isSelected(this.state.items);
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(Selector.prototype, "isValid", {
-        get: function () {
-            var _this = this;
-            var validators = privates.get(this).config.validators;
-            return validators.every(function (validator) { return validator(_this.state.selections); });
-        },
-        enumerable: true,
-        configurable: true
-    });
-    return Selector;
-}());
+    }
+    serialize(...args) {
+        const { serializer } = privates.get(this).config;
+        return serializer(this.state.selections, ...args);
+    }
+    get state() {
+        const { selectionsMap, itemsMap } = privates.get(this);
+        return {
+            items: Array.from(itemsMap.values()),
+            selections: Array.from(selectionsMap.values())
+        };
+    }
+    get hasSelections() {
+        const { selectionsMap } = privates.get(this);
+        return Boolean(selectionsMap.size);
+    }
+    get isAllSelected() {
+        return this.isSelected(this.state.items);
+    }
+    get isValid() {
+        const { validators } = privates.get(this).config;
+        return validators.every(validator => validator(this.state.selections));
+    }
+}
 
-function createSelector(items, config) {
-    return new Selector$1(items, config);
+function createSelector(state, config = undefined) {
+    return new Selector$1(state, config);
 }
 
 exports.createSelector = createSelector;

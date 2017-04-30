@@ -1,4 +1,4 @@
-export default class DeveloperMessage {
+export default class Logger {
     message: string;
     args: any;
     constructor (message, ...args) {

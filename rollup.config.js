@@ -7,6 +7,8 @@ export default {
   exports: 'named',
   moduleName: 'StatefulSelector',
   plugins: [
-    typescript()
+    typescript({
+      typescript: require('typescript')
+    })
   ]
 }

@@ -1,51 +1,29 @@
-import DeveloperMessage from './DeveloperMessage';
-import errors from './errors'
+import Logger from './logger';
+import errors from './error-messages';
+import SelectorError from './selector-error';
+import flatten from './flatten';
 
-export function flatten(arr) : any[] {
-  return !Array.isArray(arr) ? [arr] : arr.reduce((acc, item) => [
-    ...acc,
-    ...flatten(item)
-  ], []);
-}
-
-export function getDeveloperMessage ({
+export function logger ({
     err,
     details = undefined,
     strict = true,
     context = 'Selector',
 }) {
     const errFn = errors[err] || (() => 'null');
-    return new DeveloperMessage(`Selector@${errFn(context)}`, details);
+    return new Logger(`Selector@${errFn(context)}`, details);
 }
 
 export function getChangeErrors (changes) {
     const errors = Object.keys(changes).reduce((errors, action) => {
-        return [...errors, ...changes[action].filter(change => change instanceof DeveloperMessage)];
+        return [...errors, ...changes[action].filter(change => change instanceof SelectorError)];
     }, []);
     return errors.length ? errors : undefined;
-}
-
-export function has (item, internals) {
-    const { itemsMap, resolveKey } = internals;
-    return itemsMap.has(resolveKey(item));
-}
-
-export function isSelected (items, internals) {
-    const { selectionsMap, resolveKey } = internals;
-    if (selectionsMap.size === 0) return false;
-    return items.every(item => selectionsMap.has(resolveKey(item)));
-}
-
-export function isSomeSelected (items, internals) {
-    const { selectionsMap, resolveKey } = internals;
-    if (selectionsMap.size === 0) return false;
-    return items.some(item => selectionsMap.has(resolveKey(item)));
 }
 
 export function addTo (map, items, internals) {
     const { resolveKey, config } = internals
     return items.reduce((hits, item) => {
-        if (item instanceof DeveloperMessage) {
+        if (item instanceof SelectorError) {
              hits.push(item);
              return hits;
         }
@@ -63,7 +41,7 @@ export function addTo (map, items, internals) {
 export function removeFrom (map, items, internals) {
     const { resolveKey, config } = internals;
     return items.reduce((hits, item) => {
-        if (item instanceof DeveloperMessage) {
+        if (item instanceof SelectorError) {
              hits.push(item);
              return hits;
         }
@@ -91,7 +69,7 @@ export function dispatch (changes, state, internals) {
     });
 }
 
-export function resolveItems (input, context, internals) {
+export function resolveItems <ItemType = any>(input, context, internals) {
     const { itemsMap } = internals;
 
     if (typeof input === 'function') {
@@ -111,9 +89,9 @@ export function resolveItems (input, context, internals) {
             const key = resolveKey(item);
             const hasItem = itemsMap.has(key);
             if (!hasItem && config.strict) {
-                const error = getDeveloperMessage({ err: 'NO_ITEM', context, details: item });
-                error.print({ level: 'warn' });
-                acc.push(error);
+                const log = logger({ err: 'NO_ITEM', context, details: item });
+                log.print({ level: 'warn' });
+                acc.push(new SelectorError<ItemType>(log.message, item));
             } else {
                 acc.push(itemsMap.get(key));
             }
@@ -138,7 +116,7 @@ export function resolveKey (item, internals) {
 
 export function createStateGetter (state, context) {
     if (!state) {
-        getDeveloperMessage({ err: 'INVALID_STATE', context }).print({ level: 'throw' });
+        logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' });
     }
 
     if (Array.isArray(state)) {
@@ -158,7 +136,7 @@ export function createStateGetter (state, context) {
 
     if (!isCorrectSchema()) {
         return {
-            get: () => getDeveloperMessage({ err: 'INVALID_STATE', context }).print({ level: 'throw' })
+            get: () => logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' })
         }
         
     }

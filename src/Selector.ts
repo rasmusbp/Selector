@@ -1,18 +1,15 @@
+import flatten from './flatten';
 import {
-    flatten,
-    getDeveloperMessage,
+    logger,
     createStateGetter,
     resolveItems, 
     resolveKey,
-    has,
     addTo,
     removeFrom,
     dispatch,
-    isSelected,
-    isSomeSelected
 } from './utils';
 
-const privates = new WeakMap();
+const internals = new WeakMap();
 
 const ADDED = 'added';
 const REMOVED = 'removed';
@@ -55,7 +52,7 @@ class Selector <ItemType = any, TrackByType = any> {
         selections: []
     }, config : ISelectorConfig = {}) {
 
-        privates.set(this, {
+        internals.set(this, {
             initialStateGetter: createStateGetter(initialState, 'initialStateGetter'),
             itemsMap: new Map(),
             selectionsMap: new Map(),
@@ -69,17 +66,14 @@ class Selector <ItemType = any, TrackByType = any> {
                 }
             },
             createStateGetter: createStateGetter.bind(this),
-            resolveItems: (items, context) => resolveItems(items, context, privates.get(this)), 
-            resolveKey: (item) => resolveKey(item, privates.get(this)),
+            resolveItems: (items, context) => resolveItems<ItemType>(items, context, internals.get(this)), 
+            resolveKey: (item) => resolveKey(item, internals.get(this)),
             operators: {
-                has: (item) => has(item, privates.get(this)),
-                addTo: (map, items) => addTo(map, items, privates.get(this)),
-                removeFrom: (map, items) => removeFrom(map, items, privates.get(this)),
+                addTo: (map, items) => addTo(map, items, internals.get(this)),
+                removeFrom: (map, items) => removeFrom(map, items, internals.get(this)),
                 dispatch: (changes : ISelectorPatch<ItemType>) => {
-                     dispatch(changes, this.state, privates.get(this))
-                },
-                isSelected: (items) => isSelected(items, privates.get(this)),
-                isSomeSelected: (items) => isSomeSelected(items, privates.get(this)),
+                     dispatch(changes, this.state, internals.get(this))
+                }
             },
             config: Object.assign({
                 trackBy: undefined,
@@ -90,15 +84,15 @@ class Selector <ItemType = any, TrackByType = any> {
         });
 
         // kick it all off!
-        const { initialStateGetter } = privates.get(this);
+        const { initialStateGetter } = internals.get(this);
         this.setState(initialStateGetter.get());
     }
 
     subscribe (successObserver : ISuccesObserver<ItemType>, errorObserver? : IErrorObserver<ItemType>) {
-        const { subscriptions } = privates.get(this);
+        const { subscriptions } = internals.get(this);
         if ((!successObserver || typeof successObserver !== 'function') || 
             (errorObserver && typeof errorObserver !== 'function')) {
-            getDeveloperMessage({ err: 'INVALID_OBSERVER' }).print({ level: 'throw' });
+            logger({ err: 'INVALID_OBSERVER' }).print({ level: 'throw' });
         }
         const observers = {
             success: successObserver,
@@ -164,34 +158,39 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     reset () {
-        const { initialStateGetter } = privates.get(this);
+        const { initialStateGetter } = internals.get(this);
         return this.setState(initialStateGetter.get());
     }
 
     isOnlySelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
-        const { operators, resolveItems } = privates.get(this);
+        const { resolveItems } = internals.get(this);
         const items = resolveItems(input, 'isOnlySelected');
-        return operators.isSelected(items) 
+        return this.isSelected(input) 
                 && this.state.selections.length === items.length;
     }
 
     isSelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
-        const { operators, resolveItems } = privates.get(this);
-        return operators.isSelected(resolveItems(input, 'isSelected'));
+        const { selectionsMap, resolveItems, resolveKey } = internals.get(this);
+        if (selectionsMap.size === 0) return false;
+        return resolveItems(input, 'isSelected')
+                .every(item => selectionsMap.has(resolveKey(item)));
     }
 
     isSomeSelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
-        const { operators, resolveItems } = privates.get(this);
-        return operators.isSomeSelected(resolveItems(input, 'isSomeSelected'));
+        const { selectionsMap, resolveKey, resolveItems } = internals.get(this);
+        if (selectionsMap.size === 0) return false;
+        return resolveItems(input, 'isSomeSelected')
+                .some(item => selectionsMap.has(resolveKey(item)));
     }
 
     has (input) : boolean {
-        const { operators, resolveItems } = privates.get(this);
-        return operators.has(resolveItems(input, 'has')[0]);
+        const { itemsMap, resolveItems, resolveKey } = internals.get(this);
+        const items = resolveItems(input, 'has');
+        return items.every(item => itemsMap.has(resolveKey(item)));
     }
 
     swap (input, newItem) {
-        const { operators, itemsMap, selectionsMap, resolveItems, resolveKey } = privates.get(this);
+        const { operators, itemsMap, selectionsMap, resolveItems, resolveKey } = internals.get(this);
 
         if (!this.has(input)) {
            throw new Error(`Selector#swap -> cannot swap non-existing item`);
@@ -221,7 +220,7 @@ class Selector <ItemType = any, TrackByType = any> {
             itemsMap,
             selectionsMap,
             createStateGetter,
-        } = privates.get(this);
+        } = internals.get(this);
 
         const validatedState = createStateGetter(newState, 'setState').get();
 
@@ -243,7 +242,7 @@ class Selector <ItemType = any, TrackByType = any> {
             selectionsMap,
             noopChanges,
             config,
-        } = privates.get(this);
+        } = internals.get(this);
 
         const orderOfActions = [ADDED, SELECTED, REMOVED, DESELECTED];
         const changes = Object.assign(noopChanges, appliedPatch);
@@ -260,7 +259,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     const deSelectedItems = resolveItems(changes[DESELECTED], DESELECTED)
                         .map((item) => {
                             if (!config.strict || operators.isSelected([item])) return item;
-                            return getDeveloperMessage({
+                            return logger({
                                 err: 'ALREADY_DESELECTED',
                                 context: DESELECTED,
                                 details: item
@@ -273,7 +272,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     const newItems = changes[ADDED]
                         .map((item) => {
                             if (!config.strict || !operators.has(item)) return item;
-                            return getDeveloperMessage({
+                            return logger({
                                 err: 'ALREADY_EXIST',
                                 context: ADDED,
                                 details: item
@@ -287,7 +286,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     const selectedItems = resolveItems(changes[SELECTED], SELECTED)
                         .map((item) => {
                             if (!config.strict || !operators.isSelected([item])) return item;
-                            return getDeveloperMessage({
+                            return logger({
                                 err: 'ALREADY_SELECTED',
                                 context: SELECTED,
                                 details: item
@@ -321,35 +320,35 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     unsubscribeAll () {
-        const { subscriptions } = privates.get(this);
+        const { subscriptions } = internals.get(this);
         subscriptions.clear();
         return this;
     }
 
     serialize (...args) {
-        const { serializer } = privates.get(this).config;
+        const { serializer } = internals.get(this).config;
         return serializer(this.state.selections, ...args);
     }
 
-    get state () {
-        const { selectionsMap, itemsMap } = privates.get(this);
+    get state () : ISelectorState<ItemType> {
+        const { selectionsMap, itemsMap } = internals.get(this);
         return {
             items: Array.from<ItemType>(itemsMap.values()),
             selections: Array.from<ItemType>(selectionsMap.values())
         }
     }
 
-    get hasSelections () {
-        const { selectionsMap } = privates.get(this);
+    get hasSelections () : boolean {
+        const { selectionsMap } = internals.get(this);
         return Boolean(selectionsMap.size);
     }
 
-    get isAllSelected () {
+    get isAllSelected () : boolean {
         return this.isSelected(this.state.items);
     }
 
-    get isValid() {
-        const { validators } = privates.get(this).config;
+    get isValid() : boolean {
+        const { validators } = internals.get(this).config;
         return validators.every(validator => validator(this.state.selections));
     }
 

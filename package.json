@@ -4,20 +4,28 @@
   "description": "Abstraction to centralize common selection patterns",
   "main": "./dist/index.js",
   "scripts": {
-    "test": "mocha ./test.ts --require ts-node/register",
-    "testDev": "mocha ./test.ts --require ts-node/register --watch",
-    "build": "npm test && rollup -c",
+    "test": "mocha ./specs/*spec.ts --require ts-node/register",
+    "testDev": "mocha ./specs/*spec.ts  --require ts-node/register --watch",
+    "build": "npm test && rollup -c && uglifyjs ./dist/index.js -m -o ./dist/selector.min.js",
     "precommit": "npm test"
   },
   "author": "Rasmus Bangsted Pedersen",
   "license": "ISC",
   "devDependencies": {
+    "@types/chai": "^3.5.2",
+    "@types/core-js": "^0.9.41",
+    "@types/mocha": "^2.2.41",
+    "@types/node": "^7.0.14",
+    "@types/sinon": "^2.1.3",
     "chai": "^3.5.0",
+    "core-js": "^2.4.1",
     "husky": "^0.13.3",
     "mocha": "^3.3.0",
     "rollup": "^0.41.6",
     "rollup-plugin-typescript": "^0.8.1",
+    "sinon": "^2.1.0",
     "ts-node": "^3.0.2",
-    "typescript": "^2.3.2"
+    "typescript": "^2.3.2",
+    "uglify-js-harmony": "^2.7.5"
   }
 }
