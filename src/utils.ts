@@ -4,15 +4,22 @@ import SelectorError from './selector-error';
 import flatten from './flatten';
 
 export function logger ({
-    err,
-    details = undefined,
-    strict = true,
+    reason,
+    details,
     context = 'Selector',
 }) {
-    const errFn = errors[err] || (() => 'null');
+    const errFn = errors[reason] || (() => 'null');
     return new Logger(`Selector@${errFn(context)}`, details);
 }
 
+export function createSelectorError<ItemType>({
+    reason,
+    details,
+    context = 'Selector',
+}) {
+    const errFn = errors[reason] || (() => 'null');
+    return new SelectorError<ItemType>(`Selector@${errFn(context)}`, reason, details)
+}
 export function getChangeErrors (changes) {
     const errors = Object.keys(changes).reduce((errors, action) => {
         return [...errors, ...changes[action].filter(change => change instanceof SelectorError)];
@@ -84,14 +91,14 @@ export function resolveItems <ItemType = any>(input, context, internals) {
 
     const { resolveKey, config } = internals;
     const normalizedInput = flatten([input]);
-    const filter = (inp: any[]) => {
+    const validate = (inp: any[]) => {
         return inp.reduce((acc, item) => {
             const key = resolveKey(item);
             const hasItem = itemsMap.has(key);
-            if (!hasItem && config.strict) {
-                const log = logger({ err: 'NO_ITEM', context, details: item });
-                log.print({ level: 'warn' });
-                acc.push(new SelectorError<ItemType>(log.message, item));
+            if (!hasItem && config.strict && context) {
+                const err = { reason: 'NOT_EXIST', context, details: item };
+                logger(err).print({ level: 'warn' });
+                acc.push(createSelectorError(err));
             } else {
                 acc.push(itemsMap.get(key));
             }
@@ -99,7 +106,7 @@ export function resolveItems <ItemType = any>(input, context, internals) {
         }, []);
     };
 
-    return filter(normalizedInput);
+    return validate(normalizedInput);
 }
 
 export function resolveKey (item, internals) {
@@ -116,7 +123,7 @@ export function resolveKey (item, internals) {
 
 export function createStateGetter (state, context) {
     if (!state) {
-        logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' });
+        logger({ reason: 'INVALID_STATE', context, details: state }).print({ level: 'throw' });
     }
 
     if (Array.isArray(state)) {
@@ -136,7 +143,7 @@ export function createStateGetter (state, context) {
 
     if (!isCorrectSchema()) {
         return {
-            get: () => logger({ err: 'INVALID_STATE', context }).print({ level: 'throw' })
+            get: () => logger({ reason: 'INVALID_STATE', context, details: state }).print({ level: 'throw' })
         }
         
     }

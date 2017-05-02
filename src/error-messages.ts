@@ -1,6 +1,7 @@
 export default {
-    NO_ITEM: context => `${context} --> item does not exist.`,
+    NOT_EXIST: context => `${context} --> item does not exist.`,
     ALREADY_EXIST: context => `${context} --> item already exist.`,
+    READ_ONLY: context => `${context} --> ${context} is a read only property`,
     ALREADY_SELECTED: context => `${context} --> item is already selected.`,
     ALREADY_DESELECTED: context => `${context} --> item is already deselected.`,
     INVALID_TYPE: context => `${context} --> item must be of same type.`,

@@ -7,6 +7,7 @@ import {
     addTo,
     removeFrom,
     dispatch,
+    createSelectorError
 } from './utils';
 
 const internals = new WeakMap();
@@ -21,11 +22,21 @@ export interface ISelectorState<T> {
     selections: any[];
 }
 
-export interface ISelectorConfig {
+export interface ISelectorProviders {
+    error: any;
+    logger: any;
+}
+
+export interface ISelectorConfigInput {
     trackBy?: string;
     strict?: boolean;
-    validator?: Function[];
+    validators?: Function[];
     serializer?: Function;
+    providers?: ISelectorProviders;
+}
+
+export interface ISelectorConfig extends ISelectorConfigInput {
+    providers: ISelectorProviders;
 }
 
 export interface ISelectorPatch<T> {
@@ -33,6 +44,13 @@ export interface ISelectorPatch<T> {
     deSelected? : T[];
     added? : T[];
     removed? : T[];
+}
+
+export interface ISelectorPatchInput<T,P> {
+    selected? : T[]|P[];
+    deSelected? : T[]|P[];
+    added? : T[];
+    removed? : T[]|P[];
 }
 
 export interface ISelector extends Selector {
@@ -47,10 +65,10 @@ export interface IErrorObserver<T> {
 }
 
 class Selector <ItemType = any, TrackByType = any> {
-    constructor (initialState : ISelectorState<ItemType> | any[] = {
+    constructor (initialState : ISelectorState<ItemType> | ItemType[] = {
         items: [],
         selections: []
-    }, config : ISelectorConfig = {}) {
+    }, config : ISelectorConfig) {
 
         internals.set(this, {
             initialStateGetter: createStateGetter(initialState, 'initialStateGetter'),
@@ -79,8 +97,9 @@ class Selector <ItemType = any, TrackByType = any> {
                 trackBy: undefined,
                 strict: true,
                 validators: [() => true],
-                serializer: input => input
-            }, config),
+                serializer: input => input,
+                providers: config.providers
+            }, config)
         });
 
         // kick it all off!
@@ -90,9 +109,11 @@ class Selector <ItemType = any, TrackByType = any> {
 
     subscribe (successObserver : ISuccesObserver<ItemType>, errorObserver? : IErrorObserver<ItemType>) {
         const { subscriptions } = internals.get(this);
-        if ((!successObserver || typeof successObserver !== 'function') || 
-            (errorObserver && typeof errorObserver !== 'function')) {
-            logger({ err: 'INVALID_OBSERVER' }).print({ level: 'throw' });
+        if (!successObserver || typeof successObserver !== 'function') {
+            logger({ reason: 'INVALID_OBSERVER', details: successObserver}).print({ level: 'throw' });
+        }
+        if (errorObserver && typeof errorObserver !== 'function') {
+            logger({ reason: 'INVALID_OBSERVER', details: errorObserver}).print({ level: 'throw' });
         }
         const observers = {
             success: successObserver,
@@ -185,8 +206,14 @@ class Selector <ItemType = any, TrackByType = any> {
 
     has (input) : boolean {
         const { itemsMap, resolveItems, resolveKey } = internals.get(this);
-        const items = resolveItems(input, 'has');
+        const items = resolveItems(input);
         return items.every(item => itemsMap.has(resolveKey(item)));
+    }
+
+    hasSome (input) : boolean {
+        const { itemsMap, resolveItems, resolveKey } = internals.get(this);
+        const items = resolveItems(input);
+        return items.some(item => itemsMap.has(resolveKey(item)));
     }
 
     swap (input, newItem) {
@@ -212,7 +239,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return this;
     }
 
-    setState (newState : ISelectorState<ItemType>) {
+    setState (newState : ISelectorState<ItemType> | ItemType[]) {
         const { state } = this;
         const {
             operators,
@@ -234,7 +261,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return this;
     }
 
-    patch (appliedPatch : ISelectorPatch<ItemType>) {
+    patch (appliedPatch : ISelectorPatchInput<ItemType, TrackByType>) {
         const {
             operators,
             resolveItems,
@@ -252,31 +279,44 @@ class Selector <ItemType = any, TrackByType = any> {
         const validatedChanges = orderOfActions.reduce((acc, action) => {
             switch (action) {
                 case REMOVED:
-                    acc[REMOVED] = operators.removeFrom(itemsMap, resolveItems(changes[REMOVED], REMOVED));
+                    const removedItems = resolveItems(changes[REMOVED], REMOVED)
+                        .reduce((hits, item) => {
+                            let acc = hits;
+                            if (this.has([item])) {
+                                acc = [...hits, item]
+                            }
+                            else if (config.strict) {
+                                const err = { reason: 'NOT_EXIST', context: REMOVED, details: item };
+                                logger(err).print({ level: logLevel });
+                                acc = [...hits, createSelectorError(err)];
+                            }
+                            if (this.isSelected([item])) {
+                                operators.removeFrom(selectionsMap, [item]);
+                            };
+                            return acc;
+                        }, []);
+                    acc[REMOVED] = operators.removeFrom(itemsMap, removedItems);
                     break;
 
                 case DESELECTED:
                     const deSelectedItems = resolveItems(changes[DESELECTED], DESELECTED)
-                        .map((item) => {
-                            if (!config.strict || operators.isSelected([item])) return item;
-                            return logger({
-                                err: 'ALREADY_DESELECTED',
-                                context: DESELECTED,
-                                details: item
-                            }).print({ level: logLevel });
-                        });
+                        .reduce((hits, item) => {
+                            if (this.isSelected([item])) return [...hits, item];
+                            if (!config.strict) return hits;
+                            const err = { reason: 'ALREADY_DESELECTED', context: DESELECTED, details: item };
+                            logger(err).print({ level: logLevel })
+                            return [...hits, createSelectorError(err)];
+                        }, []);
                     acc[DESELECTED] = operators.removeFrom(selectionsMap, deSelectedItems);
                     break;
 
                 case ADDED:
                     const newItems = changes[ADDED]
                         .map((item) => {
-                            if (!config.strict || !operators.has(item)) return item;
-                            return logger({
-                                err: 'ALREADY_EXIST',
-                                context: ADDED,
-                                details: item
-                            }).print({ level: logLevel })
+                            if (!config.strict || !this.has(item)) return item;
+                            const err = { reason: 'ALREADY_EXIST', context: ADDED, details: item };
+                            logger(err).print({ level: logLevel })
+                            return createSelectorError(err);
                         });
 
                     acc[ADDED] = operators.addTo(itemsMap, newItems);
@@ -286,11 +326,9 @@ class Selector <ItemType = any, TrackByType = any> {
                     const selectedItems = resolveItems(changes[SELECTED], SELECTED)
                         .map((item) => {
                             if (!config.strict || !operators.isSelected([item])) return item;
-                            return logger({
-                                err: 'ALREADY_SELECTED',
-                                context: SELECTED,
-                                details: item
-                            }).print({ level: logLevel });
+                            const err = { reason: 'ALREADY_SELECTED', context: SELECTED, details: item };
+                            logger(err).print({ level: logLevel })
+                            return createSelectorError(err);
                         });
 
                     acc[SELECTED] = operators.addTo(selectionsMap, selectedItems);

@@ -1,12 +1,15 @@
-export interface ISelectorError<T> {
+export interface ISelectorError<ItemType> {
     error: Error;
-    item: T;
+    item: ItemType;
+    reason: string;
 }
-export default class SelectorError <T>{
+export default class SelectorError <ItemType>{
     error: Error;
-    item: T;
-    constructor(message, item) {
+    item: ItemType;
+    reason: string;
+    constructor(message, reason, item) {
         this.error = new Error(message);
+        this.reason = reason;
         this.item = item;
     }
 }
