@@ -118,11 +118,21 @@ describe('When removing items', () => {
             expect(state).to.deep.equal(expectedState);
         });
 
+        it('it can remove items using a predicate function', () => {
+            const selector = createSelector([1,2,3]);
+            selector.remove(item => item > 1);
+            const state = selector.state;
+            const expectedState = {
+                items: [1],
+                selections: []
+            };
+            expect(state).to.deep.equal(expectedState);
+        });
+
         it('it can remove item by reference', () => {
-            const subject = { hello: 'world '};
-            const another = { hej: 'verden' };
+            const subject = { id: 1, hello: 'world '};
+            const another = { id: 1, hej: 'verden' };
             const selector = createSelector([ subject, another ]);
-            
             selector.remove(subject);
 
             const state = selector.state;

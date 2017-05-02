@@ -1,36 +1,31 @@
-import Logger from './logger';
 import errors from './error-messages';
 import SelectorError from './selector-error';
 import flatten from './flatten';
 
-export function logger ({
+export function createStateError({
     reason,
-    details,
+    data,
     context = 'Selector',
-}) {
+}, ErrorProvider) {
     const errFn = errors[reason] || (() => 'null');
-    return new Logger(`Selector@${errFn(context)}`, details);
+    return new ErrorProvider({
+        message: `Selector@${errFn(context)}`,
+        reason,
+        data
+    })
 }
-
-export function createSelectorError<ItemType>({
-    reason,
-    details,
-    context = 'Selector',
-}) {
-    const errFn = errors[reason] || (() => 'null');
-    return new SelectorError<ItemType>(`Selector@${errFn(context)}`, reason, details)
-}
-export function getChangeErrors (changes) {
+export function getChangeErrors (changes, ErrorProvider) {
     const errors = Object.keys(changes).reduce((errors, action) => {
-        return [...errors, ...changes[action].filter(change => change instanceof SelectorError)];
+        return [...errors, ...changes[action].filter(change => change instanceof ErrorProvider)];
     }, []);
     return errors.length ? errors : undefined;
 }
 
 export function addTo (map, items, internals) {
     const { resolveKey, config } = internals
+    const ErrorProvider = config.providers.Error;
     return items.reduce((hits, item) => {
-        if (item instanceof SelectorError) {
+        if (item instanceof ErrorProvider) {
              hits.push(item);
              return hits;
         }
@@ -47,8 +42,9 @@ export function addTo (map, items, internals) {
 
 export function removeFrom (map, items, internals) {
     const { resolveKey, config } = internals;
+    const ErrorProvider = config.providers.Error;
     return items.reduce((hits, item) => {
-        if (item instanceof SelectorError) {
+        if (item instanceof ErrorProvider) {
              hits.push(item);
              return hits;
         }
@@ -65,7 +61,8 @@ export function removeFrom (map, items, internals) {
 
 export function dispatch (changes, state, internals) {
     const { subscriptions, noopChanges, config } = internals;
-    const errors = config.strict && getChangeErrors(changes);
+    const ErrorProvider = config.providers.Error;
+    const errors = config.strict && getChangeErrors(changes, ErrorProvider);
     subscriptions.forEach((observers) => {
         const args = [Object.assign(noopChanges, changes), state, this];
         if (errors) {
@@ -77,7 +74,7 @@ export function dispatch (changes, state, internals) {
 }
 
 export function resolveItems <ItemType = any>(input, context, internals) {
-    const { itemsMap } = internals;
+    const { itemsMap, createStateError } = internals;
 
     if (typeof input === 'function') {
         const predicate = input;
@@ -96,9 +93,8 @@ export function resolveItems <ItemType = any>(input, context, internals) {
             const key = resolveKey(item);
             const hasItem = itemsMap.has(key);
             if (!hasItem && config.strict && context) {
-                const err = { reason: 'NOT_EXIST', context, details: item };
-                logger(err).print({ level: 'warn' });
-                acc.push(createSelectorError(err));
+                const err = createStateError({ reason: 'NOT_EXIST', context, data: item });
+                acc.push(err.print({ level: 'warn' }));
             } else {
                 acc.push(itemsMap.get(key));
             }
@@ -121,9 +117,15 @@ export function resolveKey (item, internals) {
     return item[trackBy];
 }
 
-export function createStateGetter (state, context) {
+export function createStateGetter (state, context, ErrorProvider) {
+    const throwError = () => createStateError({
+            reason: 'INVALID_STATE',
+            context,
+            data: state
+        }, ErrorProvider).print({ level: 'throw' });
+        
     if (!state) {
-        logger({ reason: 'INVALID_STATE', context, details: state }).print({ level: 'throw' });
+        throwError();
     }
 
     if (Array.isArray(state)) {
@@ -143,7 +145,7 @@ export function createStateGetter (state, context) {
 
     if (!isCorrectSchema()) {
         return {
-            get: () => logger({ reason: 'INVALID_STATE', context, details: state }).print({ level: 'throw' })
+            get: throwError
         }
         
     }

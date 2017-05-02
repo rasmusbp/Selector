@@ -6,7 +6,7 @@ chai.use(require('sinon-chai'));
 
 import {createSelector} from '../../src/index';
 
-describe('Given setting state', () => {
+describe('When setting state', () => {
     let warn : sinon.SinonStub;
 
     beforeEach(() => warn = sinon.stub(console, 'warn'));
@@ -170,7 +170,7 @@ describe('Given setting state', () => {
     });
 });
 
-describe('Given getting state', () => {
+describe('When getting state', () => {
     context('with .state', () => {
         it('it yields the current state', () => {
             const initialState = {

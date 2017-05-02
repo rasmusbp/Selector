@@ -1,14 +1,6 @@
 import flatten from './flatten';
-import {
-    logger,
-    createStateGetter,
-    resolveItems, 
-    resolveKey,
-    addTo,
-    removeFrom,
-    dispatch,
-    createSelectorError
-} from './utils';
+import errors from './error-messages';
+import SelectorError from './selector-error';
 
 const internals = new WeakMap();
 
@@ -23,20 +15,15 @@ export interface ISelectorState<T> {
 }
 
 export interface ISelectorProviders {
-    error: any;
-    logger: any;
+    Error: any;
 }
 
-export interface ISelectorConfigInput {
+export interface ISelectorConfig {
     trackBy?: string;
     strict?: boolean;
     validators?: Function[];
     serializer?: Function;
     providers?: ISelectorProviders;
-}
-
-export interface ISelectorConfig extends ISelectorConfigInput {
-    providers: ISelectorProviders;
 }
 
 export interface ISelectorPatch<T> {
@@ -47,21 +34,22 @@ export interface ISelectorPatch<T> {
 }
 
 export interface ISelectorPatchInput<T,P> {
-    selected? : T[]|P[];
-    deSelected? : T[]|P[];
+    selected? : T[]|P[]|Function;
+    deSelected? : T[]|P[]|Function;
     added? : T[];
-    removed? : T[]|P[];
+    removed? : T[]|P[]|Function;
 }
 
-export interface ISelector extends Selector {
+export interface ISelector<T,P> extends Selector<T,P> {
+    
 }
 
-export interface ISuccesObserver<T> {
-    (changes: ISelectorPatch<T>, state: ISelectorState<T>, selector: ISelector): void;
+export interface ISuccesObserver<T,P> {
+    (changes: ISelectorPatch<T>, state: ISelectorState<T>, selector: ISelector<T,P>): void;
 }
 
-export interface IErrorObserver<T> {
-    (errors: any, state: ISelectorState<T>, selector: ISelector): void;
+export interface IErrorObserver<T,P> {
+    (errors: any, state: ISelectorState<T>, selector: ISelector<T,P>): void;
 }
 
 class Selector <ItemType = any, TrackByType = any> {
@@ -70,12 +58,157 @@ class Selector <ItemType = any, TrackByType = any> {
         selections: []
     }, config : ISelectorConfig) {
 
+        function createStateError({ reason, data, context = 'Selector' }) {
+            const errFn = errors[reason] || (() => 'null');
+            const { config } = internals.get(this);
+            const ErrorProvider = config.providers.Error;
+            return new ErrorProvider({
+                message: `Selector@${errFn(context)}`,
+                reason,
+                data
+            });
+        }
+
+        function getChangeErrors (changes) {
+            const { resolveKey, config } = internals.get(this);
+            const ErrorProvider = config.providers.Error;
+            const errors = Object.keys(changes).reduce((errors, action) => {
+                return [...errors, ...changes[action].filter(change => change instanceof ErrorProvider)];
+            }, []);
+            return errors.length ? errors : undefined;
+        }
+
+        function addTo (map, items) {
+            const { resolveKey, config } = internals.get(this);
+            const ErrorProvider = config.providers.Error;
+            return items.reduce((hits, item) => {
+                if (item instanceof ErrorProvider) {
+                    hits.push(item);
+                    return hits;
+                }
+
+                const key = resolveKey(item);
+                const hasItem = !map.has(key);
+                if (hasItem) {
+                    map.set(key, item);
+                    hits.push(item);
+                }
+                return hits;
+            }, []);
+        }
+
+        function removeFrom (map, items) {
+            const { resolveKey, config } = internals.get(this);
+            const ErrorProvider = config.providers.Error;
+            return items.reduce((hits, item) => {
+                if (item instanceof ErrorProvider) {
+                    hits.push(item);
+                    return hits;
+                }
+
+                const key = resolveKey(item);
+                const wasRemoved = map.delete(key);
+                if (wasRemoved) {
+                    hits.push(item);
+                }
+                
+                return hits;
+            }, []);
+        }
+
+        function dispatch (changes, state) {
+            const { subscriptions, noopPatch } = internals.get(this);
+            const errors = config.strict && getChangeErrors(changes);
+            subscriptions.forEach((observers) => {
+                const args = [Object.assign(noopPatch, changes), state, this];
+                if (errors) {
+                    observers.error(errors, ...args);
+                    return;
+                }
+                observers.success(...args);
+            });
+        }
+
+        function resolveItems (input, context) : ItemType[] {
+            const { itemsMap } = internals.get(this);
+
+            if (typeof input === 'function') {
+                const predicate = input;
+                return this.state.items.reduce((hits, item, index) => {
+                    if (predicate(item, index) === true) {
+                        hits.push(item);
+                    }
+                    return hits;
+                }, []);
+            }
+
+            const { resolveKey, config } = internals.get(this);
+            const normalizedInput = flatten([input]);
+            const validate = (inp: any[]) => {
+                return inp.reduce((acc, item) => {
+                    const key = resolveKey(item);
+                    const hasItem = itemsMap.has(key);
+                    if (!hasItem && config.strict && context) {
+                        const err = createStateError.call(this, { reason: 'NOT_EXIST', context, data: item });
+                        acc.push(err.print({ level: 'warn' }));
+                    } else {
+                        acc.push(itemsMap.get(key));
+                    }
+                    return acc;
+                }, []);
+            };
+
+            return validate(normalizedInput);
+        }
+
+        function resolveKey (item) {
+            const { trackBy } = internals.get(this).config;
+
+            if (!trackBy || (typeof item !== 'object' && item !== null)) {
+                return item
+            }
+            if (typeof trackBy === 'function') {
+                return trackBy(item);
+            }
+            return item[trackBy];
+        }
+
+        function isValidStateSchema(state) {
+            if(!state) return false;
+            return ([
+                typeof state === 'object',
+                Array.isArray(state.items),
+                Array.isArray(state.selections)
+            ]).every(condition => condition);
+        }
+
+        function createStateGetter (state, context) {
+            const throwError = () => {
+                return createStateError.call(this, {
+                    reason: 'INVALID_STATE',
+                    context,
+                    data: state
+                }).print({ level: 'throw' });   
+            }
+                
+            if (!state) {
+                throwError();
+            }
+
+            if (Array.isArray(state)) {
+                return {
+                    get: () => ({ items: state, selections: [] })
+                }
+            }
+
+            return { get: isValidStateSchema(state) ? () => state : throwError};
+        }
+
         internals.set(this, {
-            initialStateGetter: createStateGetter(initialState, 'initialStateGetter'),
             itemsMap: new Map(),
             selectionsMap: new Map(),
             subscriptions: new Set(),
-            get noopChanges () {
+            get noopPatch () {
                 return {
                     [ADDED]: [],
                     [SELECTED]: [],
@@ -84,37 +217,46 @@ class Selector <ItemType = any, TrackByType = any> {
                 }
             },
             createStateGetter: createStateGetter.bind(this),
-            resolveItems: (items, context) => resolveItems<ItemType>(items, context, internals.get(this)), 
-            resolveKey: (item) => resolveKey(item, internals.get(this)),
+            createStateError: createStateError.bind(this),
+            resolveItems: resolveItems.bind(this), 
+            resolveKey: resolveKey.bind(this),
             operators: {
-                addTo: (map, items) => addTo(map, items, internals.get(this)),
-                removeFrom: (map, items) => removeFrom(map, items, internals.get(this)),
-                dispatch: (changes : ISelectorPatch<ItemType>) => {
-                     dispatch(changes, this.state, internals.get(this))
-                }
+                addTo: addTo.bind(this),
+                removeFrom: removeFrom.bind(this),
+                dispatch: dispatch.bind(this)
             },
             config: Object.assign({
                 trackBy: undefined,
                 strict: true,
                 validators: [() => true],
                 serializer: input => input,
-                providers: config.providers
+                providers: Object.assign({
+                    Error: SelectorError
+                }, config.providers)
             }, config)
         });
 
-        // kick it all off!
+        // kick it off!
+        internals.get(this).initialStateGetter = createStateGetter.call(this, initialState, 'initialStateGetter');
         const { initialStateGetter } = internals.get(this);
         this.setState(initialStateGetter.get());
+        
     }
 
-    subscribe (successObserver : ISuccesObserver<ItemType>, errorObserver? : IErrorObserver<ItemType>) {
+    static mirror (patch) {
+        return {
+            [ADDED]: (patch[REMOVED] || []).slice(0),
+            [REMOVED]: (patch[ADDED] || []).slice(0),
+            [SELECTED]: (patch[DESELECTED] || []).slice(0),
+            [DESELECTED]: (patch[SELECTED] || []).slice(0),
+        }
+    }
+
+    subscribe (
+        successObserver : ISuccesObserver<ItemType, TrackByType>, 
+        errorObserver? : IErrorObserver<ItemType,TrackByType>
+    ) {
         const { subscriptions } = internals.get(this);
-        if (!successObserver || typeof successObserver !== 'function') {
-            logger({ reason: 'INVALID_OBSERVER', details: successObserver}).print({ level: 'throw' });
-        }
-        if (errorObserver && typeof errorObserver !== 'function') {
-            logger({ reason: 'INVALID_OBSERVER', details: errorObserver}).print({ level: 'throw' });
-        }
         const observers = {
             success: successObserver,
             error: errorObserver
@@ -126,19 +268,19 @@ class Selector <ItemType = any, TrackByType = any> {
         };
     }
 
-    select (input: ItemType | ItemType[] | TrackByType | TrackByType[]) {
+    select (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
         return this.patch({
-            [SELECTED]: input
+            [SELECTED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
 
-    deSelect (input: ItemType | ItemType[] | TrackByType | TrackByType[]) {
+    deSelect (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
         return this.patch({
-            [DESELECTED]: input 
+            [DESELECTED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
 
-    selectAll (input) {
+    selectAll () {
         return this.deSelectAll().select(this.state.items);
     }
 
@@ -150,7 +292,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return this.toggle(this.state.items);
     }
 
-    toggle (input: ItemType | ItemType[] | TrackByType | TrackByType[]) {
+    toggle (input) {
         const changes = flatten([input]).reduce((acc, item) => {
             if (this.isSelected(item)) {
                 acc[DESELECTED].push(item);
@@ -168,9 +310,9 @@ class Selector <ItemType = any, TrackByType = any> {
         });
     }
 
-    remove (input: ItemType | ItemType[] | TrackByType | TrackByType[]) {
+    remove (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
         return this.patch({
-            [REMOVED]: input
+            [REMOVED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
 
@@ -183,36 +325,38 @@ class Selector <ItemType = any, TrackByType = any> {
         return this.setState(initialStateGetter.get());
     }
 
-    isOnlySelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
+    isOnlySelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { resolveItems } = internals.get(this);
         const items = resolveItems(input, 'isOnlySelected');
         return this.isSelected(input) 
                 && this.state.selections.length === items.length;
     }
 
-    isSelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
+    isSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { selectionsMap, resolveItems, resolveKey } = internals.get(this);
         if (selectionsMap.size === 0) return false;
         return resolveItems(input, 'isSelected')
                 .every(item => selectionsMap.has(resolveKey(item)));
     }
 
-    isSomeSelected (input: ItemType | ItemType[] | TrackByType | TrackByType[]) : boolean {
+    isSomeSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { selectionsMap, resolveKey, resolveItems } = internals.get(this);
         if (selectionsMap.size === 0) return false;
         return resolveItems(input, 'isSomeSelected')
                 .some(item => selectionsMap.has(resolveKey(item)));
     }
 
-    has (input) : boolean {
+    has (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { itemsMap, resolveItems, resolveKey } = internals.get(this);
         const items = resolveItems(input);
+        if (!items.length) return false;
         return items.every(item => itemsMap.has(resolveKey(item)));
     }
 
-    hasSome (input) : boolean {
+    hasSome (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { itemsMap, resolveItems, resolveKey } = internals.get(this);
         const items = resolveItems(input);
+        if (!items.length) return false;
         return items.some(item => itemsMap.has(resolveKey(item)));
     }
 
@@ -267,12 +411,13 @@ class Selector <ItemType = any, TrackByType = any> {
             resolveItems,
             itemsMap,
             selectionsMap,
-            noopChanges,
+            noopPatch,
             config,
+            createStateError
         } = internals.get(this);
 
         const orderOfActions = [ADDED, SELECTED, REMOVED, DESELECTED];
-        const changes = Object.assign(noopChanges, appliedPatch);
+        const changes = Object.assign(noopPatch, appliedPatch);
         
         const logLevel = 'warn';
 
@@ -284,11 +429,9 @@ class Selector <ItemType = any, TrackByType = any> {
                             let acc = hits;
                             if (this.has([item])) {
                                 acc = [...hits, item]
-                            }
-                            else if (config.strict) {
-                                const err = { reason: 'NOT_EXIST', context: REMOVED, details: item };
-                                logger(err).print({ level: logLevel });
-                                acc = [...hits, createSelectorError(err)];
+                            } else if (config.strict) {
+                                const err = createStateError({ reason: 'NOT_EXIST', context: REMOVED, data: item });
+                                acc = [...hits, err.print({ level: logLevel })];
                             }
                             if (this.isSelected([item])) {
                                 operators.removeFrom(selectionsMap, [item]);
@@ -303,9 +446,8 @@ class Selector <ItemType = any, TrackByType = any> {
                         .reduce((hits, item) => {
                             if (this.isSelected([item])) return [...hits, item];
                             if (!config.strict) return hits;
-                            const err = { reason: 'ALREADY_DESELECTED', context: DESELECTED, details: item };
-                            logger(err).print({ level: logLevel })
-                            return [...hits, createSelectorError(err)];
+                            const err = createStateError({ reason: 'ALREADY_DESELECTED', context: DESELECTED, data: item });
+                            return [...hits, err.print({ level: logLevel })];
                         }, []);
                     acc[DESELECTED] = operators.removeFrom(selectionsMap, deSelectedItems);
                     break;
@@ -314,9 +456,8 @@ class Selector <ItemType = any, TrackByType = any> {
                     const newItems = changes[ADDED]
                         .map((item) => {
                             if (!config.strict || !this.has(item)) return item;
-                            const err = { reason: 'ALREADY_EXIST', context: ADDED, details: item };
-                            logger(err).print({ level: logLevel })
-                            return createSelectorError(err);
+                            const err = createStateError({ reason: 'ALREADY_EXIST', context: ADDED, data: item });
+                            return err.print({ level: logLevel })
                         });
 
                     acc[ADDED] = operators.addTo(itemsMap, newItems);
@@ -326,9 +467,8 @@ class Selector <ItemType = any, TrackByType = any> {
                     const selectedItems = resolveItems(changes[SELECTED], SELECTED)
                         .map((item) => {
                             if (!config.strict || !operators.isSelected([item])) return item;
-                            const err = { reason: 'ALREADY_SELECTED', context: SELECTED, details: item };
-                            logger(err).print({ level: logLevel })
-                            return createSelectorError(err);
+                            const err = createStateError({ reason: 'ALREADY_SELECTED', context: SELECTED, data: item });
+                            return err.print({ level: logLevel })
                         });
 
                     acc[SELECTED] = operators.addTo(selectionsMap, selectedItems);
@@ -342,13 +482,13 @@ class Selector <ItemType = any, TrackByType = any> {
 
         }, {});
 
+        // TODO: add more strict check
         const hasChanged = Object.keys(validatedChanges).some(action => validatedChanges[action].length);
 
         if (hasChanged) {
             operators.dispatch(validatedChanges);
         }
 
-       
         return this;
     }
 
