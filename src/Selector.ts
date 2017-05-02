@@ -2,13 +2,6 @@ import flatten from './flatten';
 import errors from './error-messages';
 import SelectorError from './selector-error';
 
-const internals = new WeakMap();
-
-const ADDED = 'added';
-const REMOVED = 'removed';
-const SELECTED = 'selected';
-const DESELECTED = 'deSelected';
-
 export interface ISelectorState<T> {
     items: T[];
     selections: any[];
@@ -51,6 +44,13 @@ export interface ISuccesObserver<T,P> {
 export interface IErrorObserver<T,P> {
     (errors: any, state: ISelectorState<T>, selector: ISelector<T,P>): void;
 }
+
+const internals = new WeakMap();
+
+const ADDED = 'added';
+const REMOVED = 'removed';
+const SELECTED = 'selected';
+const DESELECTED = 'deSelected';
 
 class Selector <ItemType = any, TrackByType = any> {
     constructor (initialState : ISelectorState<ItemType> | ItemType[] = {
@@ -117,10 +117,10 @@ class Selector <ItemType = any, TrackByType = any> {
         }
 
         function dispatch (changes, state) {
-            const { subscriptions, noopPatch } = internals.get(this);
+            const { subscriptions, noopChange } = internals.get(this);
             const errors = config.strict && getChangeErrors(changes);
             subscriptions.forEach((observers) => {
-                const args = [Object.assign(noopPatch, changes), state, this];
+                const args = [changes, state, this];
                 if (errors) {
                     observers.error(errors, ...args);
                     return;
@@ -208,7 +208,7 @@ class Selector <ItemType = any, TrackByType = any> {
             itemsMap: new Map(),
             selectionsMap: new Map(),
             subscriptions: new Set(),
-            get noopPatch () {
+            get noopChange () {
                 return {
                     [ADDED]: [],
                     [SELECTED]: [],
@@ -269,13 +269,13 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     select (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
-        return this.patch({
+        return this.applyChange({
             [SELECTED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
 
     deSelect (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
-        return this.patch({
+        return this.applyChange({
             [DESELECTED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
@@ -301,17 +301,17 @@ class Selector <ItemType = any, TrackByType = any> {
             }
             return acc;
         }, { [SELECTED]: [], [DESELECTED]: [] });
-        return this.patch(changes);
+        return this.applyChange(changes);
     }
 
     add (input: ItemType | ItemType[]) {
-        return this.patch({
+        return this.applyChange({
             [ADDED]: flatten([input])
         });
     }
 
     remove (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
-        return this.patch({
+        return this.applyChange({
             [REMOVED]: typeof input === 'function' ? input : flatten([input]) 
         });
     }
@@ -405,19 +405,19 @@ class Selector <ItemType = any, TrackByType = any> {
         return this;
     }
 
-    patch (appliedPatch : ISelectorPatchInput<ItemType, TrackByType>) {
+    applyChange (appliedChange : ISelectorPatchInput<ItemType, TrackByType>) {
         const {
             operators,
             resolveItems,
             itemsMap,
             selectionsMap,
-            noopPatch,
+            noopChange,
             config,
             createStateError
         } = internals.get(this);
 
         const orderOfActions = [ADDED, SELECTED, REMOVED, DESELECTED];
-        const changes = Object.assign(noopPatch, appliedPatch);
+        const changes = Object.assign(noopChange, appliedChange);
         
         const logLevel = 'warn';
 
@@ -489,11 +489,6 @@ class Selector <ItemType = any, TrackByType = any> {
             operators.dispatch(validatedChanges);
         }
 
-        return this;
-    }
-
-    replay (patches) {
-        patches.forEach(patch => this.patch(patch));
         return this;
     }
 

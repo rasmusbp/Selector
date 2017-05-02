@@ -23,8 +23,7 @@ describe('Given constructing a Selector instance', () => {
             'hasSome',
             'swap',
             'setState',
-            'patch',
-            'replay',
+            'applyChange',
             'unsubscribeAll',
             'serialize'
         ].forEach(method => {
