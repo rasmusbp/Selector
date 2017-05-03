@@ -35,6 +35,17 @@ describe('When adding items', () => {
             expect(state).to.deep.equal(expectedState);
         });
 
+        it('it will accept a function to determin items to add', () => {
+            const selector = createSelector([1,2,3]);
+            selector.add(state => state.items.map(item => item * 10));
+            const state = selector.state;
+            const expectedState = {
+                items: [1,2,3,10,20,30],
+                selections: []
+            };
+            expect(state).to.deep.equal(expectedState);
+        });
+
         it('it will maintain selections', () => {
             const selector = createSelector({
                 items: [1,2,3],

@@ -8,6 +8,10 @@ export interface ISelectorErrorClass<T> extends ISelectorError<T> {
     print({ level: string }) : SelectorError<T>;
 }
 
+export interface ILogOptions {
+    level: 'throw' | 'error' | 'warn' | 'log' | 'silent'
+}
+
 export default class SelectorError<T> implements ISelectorErrorClass<T>{
     data: T;
     message: string;
@@ -19,11 +23,11 @@ export default class SelectorError<T> implements ISelectorErrorClass<T>{
         this.data = data;
     }
     
-    print ({ level }) {
-        switch (level) {
+    print (options: ILogOptions) {
+        switch (options.level) {
             case 'throw':
                 throw new Error(this.message);
-            case 'soft_throw':
+            case 'error':
                 console.error(this.message, this.data);
                 break;
             case 'warn':
@@ -31,7 +35,9 @@ export default class SelectorError<T> implements ISelectorErrorClass<T>{
                 break;
             case 'log':
                 console.log(this.message, this.data);
-                break;         
+                break; 
+            case 'silent':
+                break;        
             default:
                 console.log(this.message, this.data);
                 break;
