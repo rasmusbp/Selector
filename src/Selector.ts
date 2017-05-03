@@ -260,9 +260,9 @@ class Selector <ItemType = any, TrackByType = any> {
 
             if (resolver.iterator) {
                 iterator = (state, predicate) => {
-                    return resolver.validate(resolver.iterator(state, predicate)).reduce((out, item) => {
-                            return splitByError(out, item);
-                        }, output);
+                    return resolver
+                            .validate(resolver.iterator(state, predicate))
+                            .reduce(splitByError, output);
                 }
             }
 
