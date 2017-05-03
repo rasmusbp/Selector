@@ -249,26 +249,20 @@ class Selector <ItemType = any, TrackByType = any> {
             }
             
             const predicate = resolvedInput;
-            let iterator = (state, predicate) => {
-                return this.state.items.reduce((out, item, index) => {
-                    if (predicate(item, index) === true) {
-                        return splitByError(out, resolver.validate(item, context));
-                    }
-                    return out;
-                }, output);
-            };
-
+            
             if (resolver.iterator) {
-                iterator = (state, predicate) => {
-                    return resolver
-                            .validate(resolver.iterator(state, predicate))
-                            .reduce(splitByError, output);
-                }
+                return resolver
+                        .validate(resolver.iterator(this.state, predicate))
+                        .reduce(splitByError, output);
             }
 
-            return iterator(this.state, predicate);
+            return this.state.items.reduce((out, item, index) => {
+                if (predicate(item, index) === true) {
+                    return splitByError(out, resolver.validate(item, context));
+                }
+                return out;
+            }, output);
 
-            
         }
 
         function resolveKey (item) {
