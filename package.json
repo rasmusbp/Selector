@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha ./specs/index.ts --require ts-node/register",
     "testDev": "mocha ./specs/index.ts --require ts-node/register --watch ",
-    "build": "npm test && rollup -c && uglifyjs ./dist/index.js -m -o ./dist/selector.min.js",
+    "dist": "npm test && rollup -c && uglifyjs ./dist/index.js -m -o ./dist/selector.min.js",
     "precommit": "npm test"
   },
   "author": "Rasmus Bangsted Pedersen",

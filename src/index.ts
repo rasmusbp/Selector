@@ -1,9 +1,9 @@
 import Selector from './selector';
-import {ISelectorState, ISelectorConfig} from './selector';
+import {ISelectorState, ISelectorSettings} from './selector';
 
 function createSelector <ItemType = any, TrackByType = any>(
     state?: ItemType[] | ISelectorState<ItemType>,
-    config: ISelectorConfig = {}) {
+    config: ISelectorSettings = {}) {
     return new Selector<ItemType, TrackByType>(state, config);
 }
 

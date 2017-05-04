@@ -3,7 +3,7 @@ export default {
     ALREADY_EXIST: context => `${context} --> item already exist.`,
     READ_ONLY: context => `${context} --> ${context} is a read only property`,
     ALREADY_SELECTED: context => `${context} --> item is already selected.`,
-    ALREADY_DESELECTED: context => `${context} --> item is already deselected.`,
+    NOT_SELECTED: context => `${context} --> item is not selected.`,
     INVALID_TYPE: context => `${context} --> item must be of same type.`,
     INVALID_STATE: context => `${context} --> provided state is not valid. 
                     Make sure to provide valid 'items' and 'selections' arrays.`,
