@@ -516,6 +516,7 @@ class Selector <ItemType = any, TrackByType = any> {
             log,
             addTo,
             removeFrom,
+            dispatch,
             resolveItemsWith,
             resolverFor,
             itemsMap,
