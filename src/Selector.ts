@@ -95,24 +95,16 @@ class Selector <ItemType = any, TrackByType = any> {
             return errors.length ? errors : undefined;
         }
 
-        function addTo (map, resolved) {
-            const errors = resolved.errors || [];
-            if (config.strict && errors.length) {
-                return errors;
-            }
-            return resolved.items.reduce((hits, item) => {
+        function addTo (map, items) {
+            return items.reduce((hits, item) => {
                 const key = resolveKey(item);
                 map.set(key, item);
                 return [...hits, item];
             }, []);
         }
 
-        function removeFrom (map, resolved) {
-            const errors = resolved.errors || [];
-            if (config.strict && errors.length) {
-                return errors;
-            }
-            return resolved.items.reduce((hits, item) => {
+        function removeFrom (map, items) {
+            return items.reduce((hits, item) => {
                 const key = resolveKey(item);
                 const wasRemoved = map.delete(key);                
                 return wasRemoved ? [...hits, item] : hits;
@@ -144,7 +136,7 @@ class Selector <ItemType = any, TrackByType = any> {
         }
 
         function log(errors, level = config.logLevel) {
-            if (config.strict || config.debug) {
+            if (errors && (config.strict || config.debug)) {
                 errors.forEach(error => error.print({ level }))
             }
         }
@@ -227,6 +219,7 @@ class Selector <ItemType = any, TrackByType = any> {
         function splitByError (group, item) {
             if (!item) return group;
             if (item instanceof config.providers.Error) {
+                group.errors = group.errors || [];
                 group.errors.push(item);
             } else {
                 group.items.push(item);
@@ -236,7 +229,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
         function resolveItemsWith (resolver, input, context) : { items: ItemType[], errors: ISelectorError<ItemType>[] } {
             const resolvedInput = resolveInput(input);
-            const output = { items: [], errors: [] };
+            const output = { items: [] };
 
             if (typeof resolvedInput !== 'function') {
                 return resolvedInput
@@ -500,15 +493,15 @@ class Selector <ItemType = any, TrackByType = any> {
 
         const validatedState = createStateGetter(newState, 'setState').get();
 
-        const deSelected = operators.removeFrom(selectionsMap, { items: state.items });
-        const removed = operators.removeFrom(itemsMap, { items: state.items });
-        const added = operators.addTo(itemsMap, { items: validatedState.items });
+        const deSelected = operators.removeFrom(selectionsMap, state.items);
+        const removed = operators.removeFrom(itemsMap, state.items);
+        const added = operators.addTo(itemsMap, validatedState.items);
 
         const resolved = resolveItemsWith(resolverFor.selecting, validatedState.selections, 'selections@setState');
-        log(resolved.errors);
-
-        const selected = operators.addTo(selectionsMap, resolved);
+        const { errors, items } = resolved; 
+        const selected = (config.strict && errors) ? errors : operators.addTo(selectionsMap, items);
   
+        log(errors);
         operators.dispatch({ deSelected, selected, removed, added });
 
         return this;
@@ -535,36 +528,44 @@ class Selector <ItemType = any, TrackByType = any> {
             const actions = {
                 [REMOVED]: () => {
                     const resolved = resolveItemsWith(resolverFor.getting, changes[REMOVED], REMOVED);
-                    log(resolved.errors);
+                    const { errors, items } = resolved; 
                     
                     resolved.items.forEach((item) => {
                         if (this.isSelected(item)) {
-                            change[DESELECTED].push(...operators.removeFrom(selectionsMap, { items: [item] }));
+                            change[DESELECTED].push(...operators.removeFrom(selectionsMap, [item]));
                         };
                     });
 
-                    change[REMOVED] = operators.removeFrom(itemsMap, resolved);
+                    const result = (config.strict && errors) ? errors : operators.removeFrom(itemsMap, items); 
+                    log(resolved.errors);
+                    change[REMOVED] = result;
                 },
 
                 [DESELECTED]: () => {
                     const resolved = resolveItemsWith(resolverFor.deSelecting, changes[DESELECTED], DESELECTED); 
-                    log(resolved.errors);
+                    const { errors, items } = resolved; 
+                    const result = (config.strict && errors) ? errors : operators.removeFrom(selectionsMap, items); 
 
-                    change[DESELECTED].push(...operators.removeFrom(selectionsMap, resolved));
+                    log(resolved.errors);
+                    change[DESELECTED].push(...result);
                  },
 
                 [ADDED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED); 
-                    log(resolved.errors);
+                    const resolved = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED);
+                    const { errors, items } = resolved; 
+                    const result = (config.strict && errors) ? errors : operators.addTo(itemsMap, items); 
 
-                    change[ADDED] = operators.addTo(itemsMap, resolved);
+                    log(resolved.errors);
+                    change[ADDED] = result;
                  },
 
                 [SELECTED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED); 
-                    log(resolved.errors);
+                    const resolved = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED);
+                    const { errors, items } = resolved; 
+                    const result = (config.strict && errors) ? errors : operators.addTo(selectionsMap, items);; 
 
-                    change[SELECTED] = operators.addTo(selectionsMap, resolved);
+                    log(resolved.errors);
+                    change[SELECTED] = result;
                  }
             }
 
