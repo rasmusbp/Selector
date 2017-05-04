@@ -419,44 +419,44 @@ class Selector <ItemType = any, TrackByType = any> {
         const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
         if (!this.hasSelections) return false;
 
-        const resolved = resolveItemsWith(resolverFor.getting, input, 'isSelected');
-        log(resolved.errors, 'warn');
+        const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
 
-        return resolved.items.every(operators.isSelected);
+        log(errors, 'warn');
+        return items.every(operators.isSelected);
     }
 
     isSomeSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
         if (!this.hasSelections) return false;
         
-        const resolved = resolveItemsWith(resolverFor.getting, input, 'isSomeSelected');
-        log(resolved.errors, 'warn');
+        const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isSomeSelected');
 
-        return resolved.items.some(operators.isSelected);
+        log(errors, 'warn');
+        return items.some(operators.isSelected);
     }
 
     isOnlySelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
         if (!this.hasSelections) return false;
         
-        const resolved = resolveItemsWith(resolverFor.getting, input, 'isOnlySelected');
-        log(resolved.errors, 'warn');
+        const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isOnlySelected');
 
-        return Boolean(resolved.items.length) && resolved.items.every(operators.isSelected) 
-                && this.state.selections.length === resolved.items.length;
+        log(errors, 'warn');
+        return Boolean(items.length) && items.every(operators.isSelected) 
+                && this.state.selections.length === items.length;
                
     }
 
     has (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor, operators } = internals.get(this);
-        const resolved = resolveItemsWith(resolverFor.all, input);
-        return Boolean(resolved.items.length) && resolved.items.every(operators.has);
+        const { items, errors } = resolveItemsWith(resolverFor.all, input);
+        return Boolean(items.length) && items.every(operators.has);
     }
 
     hasSome (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor } = internals.get(this);
-        const resolved = resolveItemsWith(resolverFor.getting, input);
-        return Boolean(resolved.items.length);
+        const { items, errors } = resolveItemsWith(resolverFor.getting, input);
+        return Boolean(items.length);
     }
 
     // TODO: refactor
@@ -503,8 +503,7 @@ class Selector <ItemType = any, TrackByType = any> {
         const removed = operators.removeFrom(itemsMap, state.items);
         const added = operators.addTo(itemsMap, validatedState.items);
 
-        const resolved = resolveItemsWith(resolverFor.selecting, validatedState.selections, 'selections@setState');
-        const { errors, items } = resolved; 
+        const { items, errors } = resolveItemsWith(resolverFor.selecting, validatedState.selections, 'selections@setState'); 
         const selected = ifStrict(errors) || operators.addTo(selectionsMap, items);
   
         log(errors);
@@ -534,44 +533,41 @@ class Selector <ItemType = any, TrackByType = any> {
             }
             const actions = {
                 [REMOVED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.getting, changes[REMOVED], REMOVED);
-                    const { errors, items } = resolved; 
-                    
-                    resolved.items.forEach((item) => {
+                    const { items, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVED], REMOVED);
+                    const result = ifStrict(errors) || operators.removeFrom(itemsMap, items); 
+         
+                    items.forEach((item) => {
                         if (this.isSelected(item)) {
                             change[DESELECTED].push(...operators.removeFrom(selectionsMap, [item]));
                         };
                     });
 
-                    const result = ifStrict(errors) || operators.removeFrom(itemsMap, items); 
-                    log(resolved.errors);
+
+                    log(errors);
                     change[REMOVED] = result;
                 },
 
                 [DESELECTED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.deSelecting, changes[DESELECTED], DESELECTED); 
-                    const { errors, items } = resolved; 
+                    const { items, errors } = resolveItemsWith(resolverFor.deSelecting, changes[DESELECTED], DESELECTED); 
                     const result = ifStrict(errors) || operators.removeFrom(selectionsMap, items); 
 
-                    log(resolved.errors);
+                    log(errors);
                     change[DESELECTED].push(...result);
                  },
 
                 [ADDED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED);
-                    const { errors, items } = resolved; 
+                    const { items, errors } = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED);
                     const result = ifStrict(errors) || operators.addTo(itemsMap, items); 
 
-                    log(resolved.errors);
+                    log(errors);
                     change[ADDED] = result;
                  },
 
                 [SELECTED]: () => {
-                    const resolved = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED);
-                    const { errors, items } = resolved; 
+                    const { items, errors } = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED);
                     const result = ifStrict(errors) || operators.addTo(selectionsMap, items);; 
 
-                    log(resolved.errors);
+                    log(errors);
                     change[SELECTED] = result;
                  }
             }
