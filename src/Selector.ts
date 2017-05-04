@@ -112,7 +112,7 @@ class Selector <ItemType = any, TrackByType = any> {
         }
 
         function dispatch (changes) {
-            const errors = config.strict && getChangeErrors(changes);
+            const errors = ifStrict(getChangeErrors(changes));
             subscribers.forEach((observers) => {
                 const args = [this.state, this];
                 if (errors) {
@@ -135,10 +135,14 @@ class Selector <ItemType = any, TrackByType = any> {
             return selectionsMap.has(resolveKey(item));
         }
 
-        function log(errors, level = config.logLevel) {
-            if (errors && (config.strict || config.debug)) {
+        function log(errors = [], level = config.logLevel) {
+            if (ifStrict(errors) || config.debug) {
                 errors.forEach(error => error.print({ level }))
             }
+        }
+
+        function ifStrict(val) {
+            return config.strict ? val : undefined;
         }
 
         const resolverFor = {
@@ -304,6 +308,7 @@ class Selector <ItemType = any, TrackByType = any> {
             itemsMap,
             resolverFor,
             resolveInput,
+            ifStrict,
             subscribers,
             selectionsMap,
             lastChange: undefined,
@@ -487,6 +492,7 @@ class Selector <ItemType = any, TrackByType = any> {
             resolverFor,
             config,
             itemsMap,
+            ifStrict,
             selectionsMap,
             createStateGetter,
         } = internals.get(this);
@@ -499,7 +505,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
         const resolved = resolveItemsWith(resolverFor.selecting, validatedState.selections, 'selections@setState');
         const { errors, items } = resolved; 
-        const selected = (config.strict && errors) ? errors : operators.addTo(selectionsMap, items);
+        const selected = ifStrict(errors) || operators.addTo(selectionsMap, items);
   
         log(errors);
         operators.dispatch({ deSelected, selected, removed, added });
@@ -516,6 +522,7 @@ class Selector <ItemType = any, TrackByType = any> {
             resolverFor,
             resolveInput,
             itemsMap,
+            ifStrict,
             selectionsMap,
         } = internals.get(this);
 
@@ -536,7 +543,7 @@ class Selector <ItemType = any, TrackByType = any> {
                         };
                     });
 
-                    const result = (config.strict && errors) ? errors : operators.removeFrom(itemsMap, items); 
+                    const result = ifStrict(errors) || operators.removeFrom(itemsMap, items); 
                     log(resolved.errors);
                     change[REMOVED] = result;
                 },
@@ -544,7 +551,7 @@ class Selector <ItemType = any, TrackByType = any> {
                 [DESELECTED]: () => {
                     const resolved = resolveItemsWith(resolverFor.deSelecting, changes[DESELECTED], DESELECTED); 
                     const { errors, items } = resolved; 
-                    const result = (config.strict && errors) ? errors : operators.removeFrom(selectionsMap, items); 
+                    const result = ifStrict(errors) || operators.removeFrom(selectionsMap, items); 
 
                     log(resolved.errors);
                     change[DESELECTED].push(...result);
@@ -553,7 +560,7 @@ class Selector <ItemType = any, TrackByType = any> {
                 [ADDED]: () => {
                     const resolved = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED);
                     const { errors, items } = resolved; 
-                    const result = (config.strict && errors) ? errors : operators.addTo(itemsMap, items); 
+                    const result = ifStrict(errors) || operators.addTo(itemsMap, items); 
 
                     log(resolved.errors);
                     change[ADDED] = result;
@@ -562,7 +569,7 @@ class Selector <ItemType = any, TrackByType = any> {
                 [SELECTED]: () => {
                     const resolved = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED);
                     const { errors, items } = resolved; 
-                    const result = (config.strict && errors) ? errors : operators.addTo(selectionsMap, items);; 
+                    const result = ifStrict(errors) || operators.addTo(selectionsMap, items);; 
 
                     log(resolved.errors);
                     change[SELECTED] = result;
