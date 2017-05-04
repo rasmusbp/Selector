@@ -315,14 +315,12 @@ class Selector <ItemType = any, TrackByType = any> {
             resolveItemsWith: resolveItemsWith.bind(this), 
             createStateError: createStateError.bind(this),
             createStateGetter: createStateGetter.bind(this),
-            operators: {
-                has: has.bind(this),
-                get: get.bind(this),
-                isSelected: isSelected.bind(this),
-                addTo: addTo.bind(this),
-                removeFrom: removeFrom.bind(this),
-                dispatch: dispatch.bind(this)
-            },
+            has: has.bind(this),
+            get: get.bind(this),
+            isSelected: isSelected.bind(this),
+            addTo: addTo.bind(this),
+            removeFrom: removeFrom.bind(this),
+            dispatch: dispatch.bind(this)
         });
 
         // kick it off!
@@ -416,41 +414,41 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     isSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
-        const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
+        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         if (!this.hasSelections) return false;
 
         const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
 
         log(errors, 'warn');
-        return items.every(operators.isSelected);
+        return items.every(isSelected);
     }
 
     isSomeSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
-        const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
+        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         if (!this.hasSelections) return false;
         
         const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isSomeSelected');
 
         log(errors, 'warn');
-        return items.some(operators.isSelected);
+        return items.some(isSelected);
     }
 
     isOnlySelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
-        const { resolveItemsWith, resolverFor, operators, log } = internals.get(this);
+        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         if (!this.hasSelections) return false;
         
         const { items, errors } = resolveItemsWith(resolverFor.getting, input, 'isOnlySelected');
 
         log(errors, 'warn');
-        return Boolean(items.length) && items.every(operators.isSelected) 
+        return Boolean(items.length) && items.every(isSelected) 
                 && this.state.selections.length === items.length;
                
     }
 
     has (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
-        const { resolveItemsWith, resolverFor, operators } = internals.get(this);
+        const { resolveItemsWith, resolverFor, has } = internals.get(this);
         const { items, errors } = resolveItemsWith(resolverFor.all, input);
-        return Boolean(items.length) && items.every(operators.has);
+        return Boolean(items.length) && items.every(has);
     }
 
     hasSome (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
@@ -461,7 +459,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
     // TODO: refactor
     swap (input, newItem) {
-        const { operators, itemsMap, selectionsMap, resolveItemsWith, resolveKey } = internals.get(this);
+        const { dispatch, itemsMap, selectionsMap, resolveItemsWith, resolveKey } = internals.get(this);
 
         if (!this.has(input)) {
            throw new Error(`Selector#swap -> cannot swap non-existing item`);
@@ -475,7 +473,7 @@ class Selector <ItemType = any, TrackByType = any> {
         
         itemsMap.set(key, newItem);
         
-        operators.dispatch({
+        dispatch({
             [ADDED]:[itemsMap.get(key)],
             [REMOVED]: [itemToReplace]
         });
@@ -487,10 +485,11 @@ class Selector <ItemType = any, TrackByType = any> {
         const { state } = this;
         const {
             log,
-            operators,
+            removeFrom,
+            addTo,
             resolveItemsWith,
             resolverFor,
-            config,
+            dispatch,
             itemsMap,
             ifStrict,
             selectionsMap,
@@ -499,15 +498,15 @@ class Selector <ItemType = any, TrackByType = any> {
 
         const validatedState = createStateGetter(newState, 'setState').get();
 
-        const deSelected = operators.removeFrom(selectionsMap, state.items);
-        const removed = operators.removeFrom(itemsMap, state.items);
-        const added = operators.addTo(itemsMap, validatedState.items);
+        const deSelected = removeFrom(selectionsMap, state.items);
+        const removed = removeFrom(itemsMap, state.items);
+        const added = addTo(itemsMap, validatedState.items);
 
         const { items, errors } = resolveItemsWith(resolverFor.selecting, validatedState.selections, 'selections@setState'); 
-        const selected = ifStrict(errors) || operators.addTo(selectionsMap, items);
+        const selected = ifStrict(errors) || addTo(selectionsMap, items);
   
         log(errors);
-        operators.dispatch({ deSelected, selected, removed, added });
+        dispatch({ deSelected, selected, removed, added });
 
         return this;
     }
@@ -515,11 +514,10 @@ class Selector <ItemType = any, TrackByType = any> {
     bulk (changes : ISelectorChangeInput<ItemType, TrackByType>) {
         const {
             log,
-            config,
-            operators,
+            addTo,
+            removeFrom,
             resolveItemsWith,
             resolverFor,
-            resolveInput,
             itemsMap,
             ifStrict,
             selectionsMap,
@@ -534,11 +532,11 @@ class Selector <ItemType = any, TrackByType = any> {
             const actions = {
                 [REMOVED]: () => {
                     const { items, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVED], REMOVED);
-                    const result = ifStrict(errors) || operators.removeFrom(itemsMap, items); 
+                    const result = ifStrict(errors) || removeFrom(itemsMap, items); 
          
                     items.forEach((item) => {
                         if (this.isSelected(item)) {
-                            change[DESELECTED].push(...operators.removeFrom(selectionsMap, [item]));
+                            change[DESELECTED].push(...removeFrom(selectionsMap, [item]));
                         };
                     });
 
@@ -549,7 +547,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
                 [DESELECTED]: () => {
                     const { items, errors } = resolveItemsWith(resolverFor.deSelecting, changes[DESELECTED], DESELECTED); 
-                    const result = ifStrict(errors) || operators.removeFrom(selectionsMap, items); 
+                    const result = ifStrict(errors) || removeFrom(selectionsMap, items); 
 
                     log(errors);
                     change[DESELECTED].push(...result);
@@ -557,7 +555,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
                 [ADDED]: () => {
                     const { items, errors } = resolveItemsWith(resolverFor.adding, changes[ADDED], ADDED);
-                    const result = ifStrict(errors) || operators.addTo(itemsMap, items); 
+                    const result = ifStrict(errors) || addTo(itemsMap, items); 
 
                     log(errors);
                     change[ADDED] = result;
@@ -565,7 +563,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
                 [SELECTED]: () => {
                     const { items, errors } = resolveItemsWith(resolverFor.selecting, changes[SELECTED], SELECTED);
-                    const result = ifStrict(errors) || operators.addTo(selectionsMap, items);; 
+                    const result = ifStrict(errors) || addTo(selectionsMap, items);; 
 
                     log(errors);
                     change[SELECTED] = result;
@@ -585,7 +583,7 @@ class Selector <ItemType = any, TrackByType = any> {
         const hasChanged = Object.keys(validatedChanges).some(action => !!validatedChanges[action].length);
 
         if (hasChanged) {
-            operators.dispatch(validatedChanges);
+            dispatch(validatedChanges);
         }
 
         return this;
