@@ -600,12 +600,12 @@ class Selector <ItemType = any, TrackByType = any> {
 
     get hasSelections () : boolean {
         const { selectionsMap } = internals.get(this);
-        return Boolean(selectionsMap.size);
+        return !!selectionsMap.size;
     }
 
     get hasItems () : boolean {
         const { itemsMap } = internals.get(this);
-        return Boolean(itemsMap.size);
+        return !!itemsMap.size;
     }
 
     get isAllSelected () : boolean {
