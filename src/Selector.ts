@@ -62,7 +62,7 @@ class Selector <ItemType = any, TrackByType = any> {
     }, settings : ISelectorSettings) {
 
         const itemsMap = new Map();
-        const selectedMap = new Map();
+        const selectionsMap = new Map();
         const subscribers = {
             onChanges: new Set(),
             onErrors: new Set()
@@ -144,7 +144,7 @@ class Selector <ItemType = any, TrackByType = any> {
         }
 
         const isSelected = (item) => {
-            return selectedMap.has(resolveKey(item));
+            return selectionsMap.has(resolveKey(item));
         }
 
         const log = (errors, level = config.logLevel) => {
@@ -309,7 +309,7 @@ class Selector <ItemType = any, TrackByType = any> {
             itemsMap,
             resolverFor,
             subscribers,
-            selectedMap,
+            selectionsMap,
             resolveInput,
             resolveItemsWith, 
             createStateError,
@@ -461,7 +461,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
     // TODO: refactor
     swap (input, newItem) {
-        const { dispatch, itemsMap, selectedMap, resolveItemsWith, resolveKey } = internals.get(this);
+        const { dispatch, itemsMap, selectionsMap, resolveItemsWith, resolveKey } = internals.get(this);
 
         if (!this.has(input)) {
            throw new Error(`Selector#swap -> cannot swap non-existing item`);
@@ -470,7 +470,7 @@ class Selector <ItemType = any, TrackByType = any> {
         const itemToReplace = resolveItemsWith(input)[0];
         const key = resolveKey(input);
         if (this.isSelected(itemToReplace)) {
-            selectedMap.set(key, newItem);
+            selectionsMap.set(key, newItem);
         }
         
         itemsMap.set(key, newItem);
@@ -504,7 +504,7 @@ class Selector <ItemType = any, TrackByType = any> {
             resolveItemsWith,
             resolverFor,
             itemsMap,
-            selectedMap,
+            selectionsMap,
         } = internals.get(this);
 
         const orderOfActions = [REMOVE, ADD, DESELECT, SELECT];
@@ -525,7 +525,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
                     change.forEach((item) => {
                         if (this.isSelected(item)) {
-                            acc.changes[DESELECT].push(...removeFrom(selectedMap, [item]));
+                            acc.changes[DESELECT].push(...removeFrom(selectionsMap, [item]));
                         };
                     });
 
@@ -550,7 +550,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
                     
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectedMap, hits) : []; 
+                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : []; 
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[DESELECT].push(...change);
@@ -562,7 +562,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
 
-                    const change = !(acc.hasErrors && config.strict) ? addTo(selectedMap, hits) : []; 
+                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : []; 
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[SELECT] = change;
@@ -591,16 +591,16 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     get state () : ISelectorState<ItemType, TrackByType> {
-        const { selectedMap, itemsMap } = internals.get(this);
+        const { selectionsMap, itemsMap } = internals.get(this);
         return {
             items: Array.from<ItemType>(itemsMap.values()),
-            selected: Array.from<ItemType>(selectedMap.values())
+            selected: Array.from<ItemType>(selectionsMap.values())
         }
     }
 
     get hasSelections () : boolean {
-        const { selectedMap } = internals.get(this);
-        return Boolean(selectedMap.size);
+        const { selectionsMap } = internals.get(this);
+        return Boolean(selectionsMap.size);
     }
 
     get hasItems () : boolean {
@@ -609,7 +609,8 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     get isAllSelected () : boolean {
-        return this.isSelected(this.state.items);
+        const { itemsMap, selectionsMap } = internals.get(this);
+        return itemsMap.size === selectionsMap.size;
     }
 
     get isValid() : boolean {
