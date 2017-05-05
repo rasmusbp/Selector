@@ -7,7 +7,7 @@ describe('Given constructing a Selector instance', () => {
         const selector = createSelector();
         const methods = [
             'add',
-            'bulk',
+            'applyChange',
             'deSelect',
             'deSelectAll',
             'has',
@@ -23,9 +23,7 @@ describe('Given constructing a Selector instance', () => {
             'setState',
             'subscribe',
             'swap',
-            'toggle',
-            'undoLast',
-            'unsubscribeAll'
+            'toggle'
         ].forEach(method => {
             expect(selector).to.respondTo(method);
         })
@@ -52,7 +50,7 @@ describe('Given constructing a Selector instance', () => {
             const selector = createSelector();
             const initialState = {
                 items: [],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(initialState);
         });
@@ -61,7 +59,7 @@ describe('Given constructing a Selector instance', () => {
             const selector = createSelector([]);
             const initialState = {
                 items: [],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(initialState);
         });
@@ -69,20 +67,20 @@ describe('Given constructing a Selector instance', () => {
         it('it can be constructed with a populated array', () => {
             const initialState = {
                 items: [1,2,3],
-                selections: []
+                selected: []
             };
             const selector = createSelector([1,2,3]);
             expect(selector.state).to.deep.equal(initialState);
         });
 
-        it('it can be constructed with predetermined selections', () => {
+        it('it can be constructed with predetermined selected', () => {
             const initialState = {
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             };
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             expect(selector.state).to.deep.equal(initialState);
         });
@@ -90,8 +88,8 @@ describe('Given constructing a Selector instance', () => {
         it('it will throw if passed invalid state object', () => {
             const invalid_1 = {};
             const invalid_2 = { items: [] };
-            const invalid_3 = { selections: [] };
-            const invalid_4 = { items: 'what?!', selections: [] };
+            const invalid_3 = { selected: [] };
+            const invalid_4 = { items: 'what?!', selected: [] };
             const invalid_5 = null;
             const error = /provided state is not valid/;
             const createWith = state => () => createSelector(state);
@@ -110,7 +108,7 @@ describe('Given constructing a Selector instance', () => {
             const selector = createSelector([1,2,3], {});
             const initialState = {
                 items: [1,2,3],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(initialState);
         });

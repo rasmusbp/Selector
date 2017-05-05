@@ -120,25 +120,25 @@ describe('When validating items', () => {
 
 });
 
-describe('When validating selections', () => {
+describe('When validating selected', () => {
     let warn : sinon.SinonStub;
 
     beforeEach(() => warn = sinon.stub(console, 'warn'));
     afterEach(() => warn.restore());
 
     context('with .hasSelections in default mode', () => {
-        it('it will return true if state has selections', () => {
+        it('it will return true if state has selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             expect(selector.hasSelections).to.be.true;
         });
 
-        it('it will return false if state has no selections', () => {
+        it('it will return false if state has no selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: []
+                selected: []
             });
             expect(selector.hasSelections).to.be.false;
         });
@@ -148,7 +148,7 @@ describe('When validating selections', () => {
         it('it will return true if all items are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [1,2,3]
+                selected: [1,2,3]
             });
             expect(selector.isAllSelected).to.be.true;
         });
@@ -156,7 +156,7 @@ describe('When validating selections', () => {
         it('it will return false if not all items are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2,3]
+                selected: [2,3]
             });
             expect(selector.isAllSelected).to.be.false;
         });
@@ -166,7 +166,7 @@ describe('When validating selections', () => {
         it('it will return true if provided item is selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             const isSelected = selector.isSelected(2);
             expect(isSelected).to.be.true;
@@ -175,7 +175,7 @@ describe('When validating selections', () => {
         it('it will return false if provided item is not selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             });
             const isSelected = selector.isSelected(2);
             expect(isSelected).to.be.false;
@@ -184,7 +184,7 @@ describe('When validating selections', () => {
         it('it will return true if all items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2,3]
+                selected: [2,3]
             });
             const isSelected = selector.isSelected([2,3]);
             expect(isSelected).to.be.true;
@@ -193,7 +193,7 @@ describe('When validating selections', () => {
          it('it will accept a function as predicate to determine result', () => {
             const selector = createSelector({
                 items: [1,2,3,4,5,6],
-                selections: [1,2,3]
+                selected: [1,2,3]
             });
             const isSelected = selector.isSelected(item => item < 4);
             expect(isSelected).to.be.true;
@@ -202,7 +202,7 @@ describe('When validating selections', () => {
         it('it will return false if not all items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2,3]
+                selected: [2,3]
             });
             const isSelected = selector.isSelected([1,2,3]);
             expect(isSelected).to.be.false;
@@ -213,7 +213,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { debug: true });
             selector.isSelected(4);
             const warning = warn.lastCall.args[0];
@@ -225,7 +225,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { strict: true });
             selector.isSelected(4);
             const warning = warn.lastCall.args[0];
@@ -242,9 +242,9 @@ describe('When validating selections', () => {
                 { id: '3', name: 'Leia' },
                 { id: '4', name: 'Ben' },
             ];
-            selector = createSelector({
+            selector = createSelector<{ id: string, name: string }>({
                 items,
-                selections: ['1','2']
+                selected: ['1','2']
             }, { trackBy: 'id' });
         });
 
@@ -263,7 +263,7 @@ describe('When validating selections', () => {
         it('it will return true if provided item is selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             const isSomeSelected = selector.isSomeSelected(2);
             expect(isSomeSelected).to.be.true;
@@ -272,7 +272,7 @@ describe('When validating selections', () => {
         it('it will return false if provided item is not selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             });
             const isSomeSelected = selector.isSomeSelected(2);
             expect(isSomeSelected).to.be.false;
@@ -281,7 +281,7 @@ describe('When validating selections', () => {
         it('it will return true if some items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             const isSomeSelected = selector.isSomeSelected([2,3]);
             expect(isSomeSelected).to.be.true;
@@ -290,7 +290,7 @@ describe('When validating selections', () => {
         it('it will accept a function as predicate to determine result', () => {
             const selector = createSelector({
                 items: [1,2,3,4,5,6],
-                selections: [1,2,3]
+                selected: [1,2,3]
             });
             const isSomeSelected = selector.isSomeSelected(item => item < 2);
             expect(isSomeSelected).to.be.true;
@@ -299,7 +299,7 @@ describe('When validating selections', () => {
         it('it will return false if non of the items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [1]
+                selected: [1]
             });
             const isSomeSelected = selector.isSomeSelected([2,3]);
             expect(isSomeSelected).to.be.false;
@@ -315,9 +315,9 @@ describe('When validating selections', () => {
                 { id: '3', name: 'Leia' },
                 { id: '4', name: 'Ben' },
             ];
-            selector = createSelector({
+            selector = createSelector<{ id: string, name: string }>({
                 items,
-                selections: ['1','2','3']
+                selected: ['1','2','3']
             }, { trackBy: 'id' });
         });
 
@@ -336,7 +336,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { debug: true });
             selector.isSomeSelected(4);
             const warning = warn.lastCall.args[0];
@@ -348,7 +348,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { strict: true });
             selector.isSomeSelected(4);
             const warning = warn.lastCall.args[0];
@@ -360,7 +360,7 @@ describe('When validating selections', () => {
         it('it will return true if provided item is selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2]
+                selected: [2]
             });
             const isOnlySelected = selector.isOnlySelected(2);
             expect(isOnlySelected).to.be.true;
@@ -369,7 +369,7 @@ describe('When validating selections', () => {
         it('it will return false if provided item is not selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             });
             const isOnlySelected = selector.isOnlySelected(2);
             expect(isOnlySelected).to.be.false;
@@ -378,7 +378,7 @@ describe('When validating selections', () => {
         it('it will return true if only items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [2,3]
+                selected: [2,3]
             });
             const isOnlySelected = selector.isOnlySelected([2,3]);
             expect(isOnlySelected).to.be.true;
@@ -387,7 +387,7 @@ describe('When validating selections', () => {
          it('it will accept a function as predicate to determine result', () => {
             const selector = createSelector({
                 items: [1,2,3,4,5,6],
-                selections: [1]
+                selected: [1]
             });
             const isOnlySelected = selector.isOnlySelected(item => item === 1);
             expect(isOnlySelected).to.be.true;
@@ -396,7 +396,7 @@ describe('When validating selections', () => {
         it('it will return false if more items of provided array are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [1,2,3]
+                selected: [1,2,3]
             });
             const isOnlySelected = selector.isOnlySelected([2,3]);
             expect(isOnlySelected).to.be.false;
@@ -413,9 +413,9 @@ describe('When validating selections', () => {
                 { id: '3', name: 'Leia' },
                 { id: '4', name: 'Ben' },
             ];
-            selector = createSelector({
+            selector = createSelector<{ id: string, name: string }>({
                 items,
-                selections: ['1','2']
+                selected: ['1','2']
             }, { trackBy: 'id' });
         });
 
@@ -434,7 +434,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { debug: true });
             selector.isOnlySelected(4);
 
@@ -447,7 +447,7 @@ describe('When validating selections', () => {
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [3]
+                selected: [3]
             }, { strict: true });
             selector.isOnlySelected(4);
 

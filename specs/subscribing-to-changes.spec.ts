@@ -22,15 +22,38 @@ describe('When subscribing to state changes', () => {
             expect(observer).to.have.callCount(4);
         });
 
-        it('it will not notify error observer on invalid changes', () => {
+        it('it will also notify on invalid changes with result of successful changes', () => {
             const selector = createSelector([1]);
+            const observer = sinon.stub();
+            selector.subscribe(observer);
+
+            selector.add([1,2]);
+
+            const expectedChange = {
+                add: [2],
+                select: [],
+                deselect: [],
+                remove: []
+            }
+
+            expect(observer).to.have.been.calledWithExactly(expectedChange, selector.state, selector);
+        });
+
+        it('it will also notify error observer on invalid changes with unsuccessful changes', () => {
+            const selector = createSelector();
             const observer = sinon.stub();
             const errorObserver = sinon.stub();
             selector.subscribe(observer, errorObserver);
 
-            selector.add([1,2]);
+            selector.add(1).select(1).add(1);
 
-            expect(errorObserver).to.have.callCount(0);
+            const mockErrors = [{
+                message: 'Selector@add --> item already exist.',
+                reason: 'ALREADY_EXIST',
+                data: 1
+            }];
+
+           expect(errorObserver).to.have.been.calledWithExactly(mockErrors, selector.state, selector);
         });
 
         it('it will not notify on non-mutations', () => {
@@ -77,32 +100,47 @@ describe('When subscribing to state changes', () => {
         it('it will only dispatch one change on a bulk action', () => {
             const selector = createSelector({
                 items: [1,2,3,4,5],
-                selections: [1,2]
+                selected: [1,2]
             });
             const observer = sinon.stub();
             selector.subscribe(observer);
 
             selector
-                .bulk({
-                    added: [10,20,30,40,50],
-                    selected: [10,20,3,4],
-                    deSelected: [1,2],
-                    removed: [5]
+                .applyChange({
+                    add: [10,20,30,40,50],
+                    select: [10,20,3,4],
+                    deselect: [1,2],
+                    remove: [5]
                 });
 
             expect(observer).to.have.callCount(1);
         });
 
+        it('it will return an unsubsribe function', () => {
+            const selector = createSelector();
+            const observer = sinon.stub();
+            const errorObserver = sinon.stub();
+            const unsubsriber = selector.subscribe(observer, errorObserver);
+
+            selector.add(1).add(1);
+            unsubsriber();
+            selector.add(2).add(2);
+
+            expect(observer).to.have.callCount(1);
+            expect(errorObserver).to.have.callCount(1);
+
+        });
+        
         it('it will provide changes, state and instance as arguments to the observer', () => {
             const selector = createSelector();
             const observer = sinon.stub();
             selector.subscribe(observer);
             selector.add(1);
             const change = {
-                added: [1],
-                selected: [],
-                deSelected: [],
-                removed: []
+                add: [1],
+                select: [],
+                deselect: [],
+                remove: []
             }
 
             expect(observer).to.have.been.calledWithMatch(change, selector.state, selector);
@@ -116,7 +154,7 @@ describe('When subscribing to state changes', () => {
         afterEach(() => error.restore());
 
         context('on valid changes', () => {
-              it('it will notify default observer', () => {
+            it('it will notify default observer', () => {
                 const selector = createSelector([], { strict: true });
                 const observer = sinon.stub();
                 selector.subscribe(observer);
@@ -163,31 +201,31 @@ describe('When subscribing to state changes', () => {
             it('it will provide errors, state and instance as arguments to the error observer', () => {
                 const selector = createSelector({
                     items: [1,2],
-                    selections: [2]
+                    selected: [2]
                 }, { strict: true });
 
                 const observer = sinon.stub();
                 const errorObserver = sinon.stub();
                 selector.subscribe(observer, errorObserver);
 
-                selector.bulk({
-                    added: [1],
-                    selected: [2],
-                    deSelected: [],
-                    removed: []
+                selector.applyChange({
+                    add: [1],
+                    select: [2],
+                    deselect: [],
+                    remove: []
                 });
 
                 const mockErrors = [{
-                    message: 'Selector@added --> item already exist.',
+                    message: 'Selector@add --> item already exist.',
                     reason: 'ALREADY_EXIST',
                     data: 1
                 }, {
-                    message: 'Selector@selected --> item is already selected.',
+                    message: 'Selector@select --> item is already selected.',
                     reason: 'ALREADY_SELECTED',
                     data: 2
-                }]
+                }];
 
-                expect(errorObserver).to.have.been.calledWithMatch(mockErrors, selector.state, selector);
+                expect(errorObserver).to.have.been.calledWithExactly(mockErrors, selector.state, selector);
             });
         });
 

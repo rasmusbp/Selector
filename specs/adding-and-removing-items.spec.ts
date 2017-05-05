@@ -14,7 +14,7 @@ describe('When adding items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3,4],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -25,7 +25,7 @@ describe('When adding items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3,4,5,6],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -36,21 +36,21 @@ describe('When adding items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3,10,20,30],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
 
-        it('it will maintain selections', () => {
+        it('it will maintain selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [1,2]
+                selected: [1,2]
             });
             selector.add([4,5,6]);
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3,4,5,6],
-                selections: [1,2]
+                selected: [1,2]
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -61,7 +61,7 @@ describe('When adding items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -79,7 +79,7 @@ describe('When adding items', () => {
             selector.add(1);
             const warning = warn.lastCall.args[0];
 
-            expect(warning).to.include('added --> item already exist');
+            expect(warning).to.include('add --> item already exist');
         });
 
         it('it still performs action if warning is logged', () => {
@@ -87,7 +87,7 @@ describe('When adding items', () => {
             selector.add([1,4]);
             const expectedState = {
                 items: [1,2,3,4],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(expectedState);
         });
@@ -103,7 +103,7 @@ describe('When adding items', () => {
             const selector = createSelector([1,2,3], { strict: true });
             selector.add(1);
             const err = error.lastCall.args[0];
-            expect(err).to.include('added --> item already exist');
+            expect(err).to.include('add --> item already exist');
         });
 
         it('it does not perform action on existing items if error is logged', () => {
@@ -111,7 +111,7 @@ describe('When adding items', () => {
             selector.add([1,4]);
             const expectedState = {
                 items: [1,2,3],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(expectedState);
         });
@@ -126,7 +126,7 @@ describe('When removing items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1,3],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -137,7 +137,7 @@ describe('When removing items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -148,7 +148,7 @@ describe('When removing items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [1],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -162,36 +162,36 @@ describe('When removing items', () => {
             const state = selector.state;
             const expectedState = {
                 items: [another],
-                selections: []
+                selected: []
             };
             expect(state).to.deep.equal(expectedState);
         });
         
 
-        it('it will maintain selections', () => {
+        it('it will maintain selected', () => {
             const selector = createSelector({
                 items: [1,2,3,4,5],
-                selections: [1,2]
+                selected: [1,2]
             });
             selector.remove([4,5]);
             const state = selector.state;
             const expectedState = {
                 items: [1,2,3],
-                selections: [1,2]
+                selected: [1,2]
             };
             expect(state).to.deep.equal(expectedState);
         });
 
-        it('it will remove from selections if provided items are selected', () => {
+        it('it will remove from selected if provided items are selected', () => {
             const selector = createSelector({
                 items: [1,2,3],
-                selections: [1,2]
+                selected: [1,2]
             });
             selector.remove(1);
             const state = selector.state;
             const expectedState = {
                 items: [2,3],
-                selections: [2]
+                selected: [2]
             };
             expect(state).to.deep.equal(expectedState);
         });
@@ -208,7 +208,7 @@ describe('When removing items', () => {
 
             const selector = createSelector<{id: string}>({
                 items,
-                selections: [
+                selected: [
                     { id: '4', name: 'Ben' },
                     { id: '3', name: 'Leia' }
                 ]
@@ -222,7 +222,7 @@ describe('When removing items', () => {
                     { id: '2', name: 'Han' },
                     { id: '4', name: 'Ben' }
                 ],
-                selections: [{ id: '4', name: 'Ben' }]
+                selected: [{ id: '4', name: 'Ben' }]
             }
 
             expect(selector.state).deep.equal(expectedState);
@@ -239,7 +239,7 @@ describe('When removing items', () => {
             const selector = createSelector([1,2,3], { debug: true });
             selector.remove(4);
             const warning = warn.lastCall.args[0];
-            expect(warning).to.include('removed --> item does not exist');
+            expect(warning).to.include('remove --> item does not exist');
         });
 
         it('it still performs action on existing items if warning is logged', () => {
@@ -247,7 +247,7 @@ describe('When removing items', () => {
             selector.remove([1,4]);
             const expectedState = {
                 items: [2,3],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(expectedState);
         });
@@ -263,7 +263,7 @@ describe('When removing items', () => {
             const selector = createSelector([1,2,3], { strict: true });
             selector.remove(4);
             const err = error.lastCall.args[0];
-            expect(err).to.include('removed --> item does not exist');
+            expect(err).to.include('remove --> item does not exist');
         });
 
         it('it does not perform action on existing items if error is logged', () => {
@@ -271,7 +271,7 @@ describe('When removing items', () => {
             selector.add([1,4]);
             const expectedState = {
                 items: [1,2,3],
-                selections: []
+                selected: []
             };
             expect(selector.state).to.deep.equal(expectedState);
         });
