@@ -200,7 +200,7 @@ class Selector <ItemType = any, TrackByType = any> {
                     }
                 }
             },
-            deSelecting: {
+            deselecting: {
                 validate(item, context) {
                     if (!has(item)) {
                         return createStateError({
@@ -361,18 +361,18 @@ class Selector <ItemType = any, TrackByType = any> {
         });
     }
 
-    deSelect (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
+    deselect (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) {
         return this.applyChange({
             [DESELECT]: input
         });
     }
 
     selectAll () {
-        return this.deSelectAll().select(this.state.items);
+        return this.deselectAll().select(this.state.items);
     }
 
-    deSelectAll () {
-        return this.deSelect(this.state.selected);
+    deselectAll () {
+        return this.deselect(this.state.selected);
     }
 
     invert () {
@@ -545,7 +545,7 @@ class Selector <ItemType = any, TrackByType = any> {
                  },
 
                 [DESELECT]: () => {
-                    const { hits, errors } = resolveItemsWith(resolverFor.deSelecting, changes[DESELECT], DESELECT); 
+                    const { hits, errors } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT); 
                     log(errors);
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;

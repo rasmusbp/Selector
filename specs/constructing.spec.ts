@@ -8,8 +8,8 @@ describe('Given constructing a Selector instance', () => {
         const methods = [
             'add',
             'applyChange',
-            'deSelect',
-            'deSelectAll',
+            'deselect',
+            'deselectAll',
             'has',
             'hasSome',
             'invert',

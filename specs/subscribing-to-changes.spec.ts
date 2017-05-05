@@ -16,7 +16,7 @@ describe('When subscribing to state changes', () => {
             selector
                 .add(1)
                 .select(1)
-                .deSelect(1)
+                .deselect(1)
                 .remove(1);
 
             expect(observer).to.have.callCount(4);
@@ -76,7 +76,7 @@ describe('When subscribing to state changes', () => {
                 .add(1).add(1).add(1).add(1)    // <- 1 state change
                 .select(1).select(1)            // <- 1 state change
                 .remove(1).remove(1)            // <- 1 state change
-                .deSelect(1);                   // <- 0 state changes
+                .deselect(1);                   // <- 0 state changes
 
             expect(observer).to.have.callCount(3);
         });
@@ -130,7 +130,7 @@ describe('When subscribing to state changes', () => {
             expect(errorObserver).to.have.callCount(1);
 
         });
-        
+
         it('it will provide changes, state and instance as arguments to the observer', () => {
             const selector = createSelector();
             const observer = sinon.stub();
