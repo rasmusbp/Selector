@@ -1,11 +1,6 @@
 import errors from './error-messages';
 import {default as SelectorError, ISelectorError} from './selector-error';
 
-export interface ISelectorState<T,P> {
-    items: T[];
-    selected: T[]|P[];
-}
-
 export interface ISelectorProviders {
     Error: any;
 }
@@ -22,6 +17,16 @@ export interface ISelectorConfig extends ISelectorSettings {
     logLevel?: string;
 }
 
+export interface ISelectorState<T,P> {
+    items: T[];
+    selected: T[];
+}
+
+export interface ISelectorStateInput<T,P> {
+    items: T[] | Function;
+    selected: T[ ] | P[] | Function;
+}
+
 export interface ISelectorChange<T> {
     select? : T[];
     deselect? : T[];
@@ -30,10 +35,10 @@ export interface ISelectorChange<T> {
 }
 
 export interface ISelectorChangeInput<T,P> {
-    select? : T[]|P[]|Function;
-    deselect? : T[]|P[]|Function;
-    add? : T[]|Function;
-    remove? : T[]|P[]|Function;
+    select? : T[] | P[] | Function;
+    deselect? : T[] | P[] | Function;
+    add? : T[] | Function;
+    remove? : T[] | P[] | Function;
 }
 
 export interface ISelector<T,P> extends Selector<T,P> {
@@ -56,7 +61,7 @@ const SELECT = 'select';
 const DESELECT = 'deselect';
 
 class Selector <ItemType = any, TrackByType = any> {
-    constructor (initialState : ISelectorState<ItemType, TrackByType> | ItemType[] = {
+    constructor (initialState : ISelectorStateInput<ItemType, TrackByType> | ItemType[] = {
         items: [],
         selected: []
     }, settings : ISelectorSettings) {
@@ -161,8 +166,8 @@ class Selector <ItemType = any, TrackByType = any> {
                 validate: get
             },
             adding: {
-                iterator(state, predicate) {
-                    return predicate(state);
+                iterator(state, initialState, predicate) {
+                    return predicate(state, initialState);
                 },
                 validate(item, context) {
                     return !has(item) ? item : createStateError({
@@ -224,7 +229,8 @@ class Selector <ItemType = any, TrackByType = any> {
         const resolveInput = (input, iterator?) => {
             if (typeof input === 'function') {
                 if (iterator) {
-                    return iterator(this.state, input);
+                    const { initialState } = internals.get(this)
+                    return iterator(this.state, initialState, input);
                 } else {
                     return this.state.items.reduce((acc, item, index) => {
                         if (input(item, index) === true) {
@@ -251,7 +257,7 @@ class Selector <ItemType = any, TrackByType = any> {
         }
 
         const resolveItemsWith = (resolver, input, context) : { items: ItemType[], errors: ISelectorError<ItemType>[] } => {
-            const resolvedInput = resolveInput.call(this, input, resolver.iterator);
+            const resolvedInput = resolveInput(input, resolver.iterator);
             const output = { hits: [], errors: [] };
 
             return resolvedInput
@@ -276,31 +282,22 @@ class Selector <ItemType = any, TrackByType = any> {
             if(!state) return false;
             return ([
                 typeof state === 'object',
-                Array.isArray(state.items),
-                Array.isArray(state.selected)
+                (Array.isArray(state.items) || typeof state.items === 'function'),
+                (Array.isArray(state.selected) || typeof state.selected === 'function')
             ]).every(condition => condition);
         }
 
-        const createStateGetter = (state, context) => {
-            const throwError = () => {
-                return createStateError({
-                    reason: 'INVALID_STATE',
-                    context,
-                    data: state
-                }).print({ level: 'throw' });   
-            }
-                
-            if (!state) {
-                throwError();
-            }
-
-            if (Array.isArray(state)) {
+        const createStateObject = (input) => {
+            if (Array.isArray(input)) {
                 return {
-                    get: () => ({ items: state.slice(), selected: [] })
+                    items: input.slice(), 
+                    selected: []
                 }
             }
-
-            return { get: isValidStateSchema(state) ? () => state : throwError};
+            return {
+                items: Array.isArray(input.items) ? input.items.slice() : input.items, 
+                selected: Array.isArray(input.selected) ? input.selected.slice() : input.selected
+            };
         }
 
         internals.set(this, {
@@ -313,7 +310,7 @@ class Selector <ItemType = any, TrackByType = any> {
             resolveInput,
             resolveItemsWith, 
             createStateError,
-            createStateGetter,
+            createStateObject,
             has,
             get,
             isSelected,
@@ -323,7 +320,7 @@ class Selector <ItemType = any, TrackByType = any> {
         });
 
         // kick it off!
-        this.setState(createStateGetter(initialState, 'initialState').get());
+        this.setState(initialState);
         internals.get(this).initialState = this.state;
         
     }
@@ -483,9 +480,10 @@ class Selector <ItemType = any, TrackByType = any> {
         return this;
     }
 
-    setState (newState : ISelectorState<ItemType, TrackByType>) {
+    setState (newState : ISelectorStateInput<ItemType, TrackByType> | ItemType[]) {
         const { state } = this;
-        const { items, selected } = newState;
+        const { createStateObject } = internals.get(this);
+        const { items, selected } = createStateObject(newState)
 
         return this.applyChange({
             [REMOVE]: state.items,

@@ -9,10 +9,7 @@ var errors = {
     ALREADY_EXIST: context => `${context} --> item already exist.`,
     READ_ONLY: context => `${context} --> ${context} is a read only property`,
     ALREADY_SELECTED: context => `${context} --> item is already selected.`,
-    NOT_SELECTED: context => `${context} --> item is not selected.`,
-    INVALID_TYPE: context => `${context} --> item must be of same type.`,
-    INVALID_STATE: context => `${context} --> provided state is not valid. 
-                    Make sure to provide valid 'items' and 'selections' arrays.`,
+    NOT_SELECTED: context => `${context} --> item is not selected.`
 };
 
 class SelectorError {
@@ -55,7 +52,7 @@ class Selector {
             selected: []
         }, settings) {
         const itemsMap = new Map();
-        const selectedMap = new Map();
+        const selectionsMap = new Map();
         const subscribers = {
             onChanges: new Set(),
             onErrors: new Set()
@@ -120,7 +117,7 @@ class Selector {
             return itemsMap.has(resolveKey(item));
         };
         const isSelected = (item) => {
-            return selectedMap.has(resolveKey(item));
+            return selectionsMap.has(resolveKey(item));
         };
         const log = (errors$$1, level = config.logLevel) => {
             if (errors$$1.length && (config.strict || config.debug)) {
@@ -135,8 +132,8 @@ class Selector {
                 validate: get
             },
             adding: {
-                iterator(state, predicate) {
-                    return predicate(state);
+                iterator(state, initialState, predicate) {
+                    return predicate(state, initialState);
                 },
                 validate(item, context) {
                     return !has(item) ? item : createStateError({
@@ -176,7 +173,7 @@ class Selector {
                     }
                 }
             },
-            deSelecting: {
+            deselecting: {
                 validate(item, context) {
                     if (!has(item)) {
                         return createStateError({
@@ -201,7 +198,8 @@ class Selector {
         const resolveInput = (input, iterator) => {
             if (typeof input === 'function') {
                 if (iterator) {
-                    return iterator(this.state, input);
+                    const { initialState } = internals.get(this);
+                    return iterator(this.state, initialState, input);
                 }
                 else {
                     return this.state.items.reduce((acc, item, index) => {
@@ -231,7 +229,7 @@ class Selector {
             return group;
         };
         const resolveItemsWith = (resolver, input, context) => {
-            const resolvedInput = resolveInput.call(this, input, resolver.iterator);
+            const resolvedInput = resolveInput(input, resolver.iterator);
             const output = { hits: [], errors: [] };
             return resolvedInput
                 .reduce((out, item) => {
@@ -253,27 +251,21 @@ class Selector {
                 return false;
             return ([
                 typeof state === 'object',
-                Array.isArray(state.items),
-                Array.isArray(state.selected)
+                (Array.isArray(state.items) || typeof state.items === 'function'),
+                (Array.isArray(state.selected) || typeof state.selected === 'function')
             ]).every(condition => condition);
         };
-        const createStateGetter = (state, context) => {
-            const throwError = () => {
-                return createStateError({
-                    reason: 'INVALID_STATE',
-                    context,
-                    data: state
-                }).print({ level: 'throw' });
-            };
-            if (!state) {
-                throwError();
-            }
-            if (Array.isArray(state)) {
+        const createStateObject = (input) => {
+            if (Array.isArray(input)) {
                 return {
-                    get: () => ({ items: state.slice(), selected: [] })
+                    items: input.slice(),
+                    selected: []
                 };
             }
-            return { get: isValidStateSchema(state) ? () => state : throwError };
+            return {
+                items: Array.isArray(input.items) ? input.items.slice() : input.items,
+                selected: Array.isArray(input.selected) ? input.selected.slice() : input.selected
+            };
         };
         internals.set(this, {
             log,
@@ -281,11 +273,11 @@ class Selector {
             itemsMap,
             resolverFor,
             subscribers,
-            selectedMap,
+            selectionsMap,
             resolveInput,
             resolveItemsWith,
             createStateError,
-            createStateGetter,
+            createStateObject,
             has,
             get,
             isSelected,
@@ -294,7 +286,7 @@ class Selector {
             dispatch
         });
         // kick it off!
-        this.setState(createStateGetter(initialState, 'initialState').get());
+        this.setState(initialState);
         internals.get(this).initialState = this.state;
     }
     static mirror(change) {
@@ -323,16 +315,16 @@ class Selector {
             [SELECT]: input
         });
     }
-    deSelect(input) {
+    deselect(input) {
         return this.applyChange({
             [DESELECT]: input
         });
     }
     selectAll() {
-        return this.deSelectAll().select(this.state.items);
+        return this.deselectAll().select(this.state.items);
     }
-    deSelectAll() {
-        return this.deSelect(this.state.selected);
+    deselectAll() {
+        return this.deselect(this.state.selected);
     }
     invert() {
         return this.toggle(this.state.items);
@@ -405,14 +397,14 @@ class Selector {
     }
     // TODO: refactor
     swap(input, newItem) {
-        const { dispatch, itemsMap, selectedMap, resolveItemsWith, resolveKey } = internals.get(this);
+        const { dispatch, itemsMap, selectionsMap, resolveItemsWith, resolveKey } = internals.get(this);
         if (!this.has(input)) {
             throw new Error(`Selector#swap -> cannot swap non-existing item`);
         }
         const itemToReplace = resolveItemsWith(input)[0];
         const key = resolveKey(input);
         if (this.isSelected(itemToReplace)) {
-            selectedMap.set(key, newItem);
+            selectionsMap.set(key, newItem);
         }
         itemsMap.set(key, newItem);
         dispatch({
@@ -423,7 +415,8 @@ class Selector {
     }
     setState(newState) {
         const { state } = this;
-        const { items, selected } = newState;
+        const { createStateObject } = internals.get(this);
+        const { items, selected } = createStateObject(newState);
         return this.applyChange({
             [REMOVE]: state.items,
             [ADD]: items,
@@ -431,7 +424,7 @@ class Selector {
         });
     }
     applyChange(changes) {
-        const { log, config, addTo, removeFrom, dispatch, resolveItemsWith, resolverFor, itemsMap, selectedMap, } = internals.get(this);
+        const { log, config, addTo, removeFrom, dispatch, resolveItemsWith, resolverFor, itemsMap, selectionsMap, } = internals.get(this);
         const orderOfActions = [REMOVE, ADD, DESELECT, SELECT];
         const resolvedChanges = orderOfActions.reduce((acc, action) => {
             if (!changes[action] && changes[action] !== 0) {
@@ -447,7 +440,7 @@ class Selector {
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     change.forEach((item) => {
                         if (this.isSelected(item)) {
-                            acc.changes[DESELECT].push(...removeFrom(selectedMap, [item]));
+                            acc.changes[DESELECT].push(...removeFrom(selectionsMap, [item]));
                         }
                         
                     });
@@ -463,11 +456,11 @@ class Selector {
                     acc.changes[ADD] = change;
                 },
                 [DESELECT]: () => {
-                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.deSelecting, changes[DESELECT], DESELECT);
+                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT);
                     log(errors$$1);
                     acc.errors.push(...errors$$1);
                     acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectedMap, hits) : [];
+                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     acc.changes[DESELECT].push(...change);
                 },
@@ -476,7 +469,7 @@ class Selector {
                     log(errors$$1);
                     acc.errors.push(...errors$$1);
                     acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? addTo(selectedMap, hits) : [];
+                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     acc.changes[SELECT] = change;
                 }
@@ -499,22 +492,23 @@ class Selector {
         return this;
     }
     get state() {
-        const { selectedMap, itemsMap } = internals.get(this);
+        const { selectionsMap, itemsMap } = internals.get(this);
         return {
             items: Array.from(itemsMap.values()),
-            selected: Array.from(selectedMap.values())
+            selected: Array.from(selectionsMap.values())
         };
     }
     get hasSelections() {
-        const { selectedMap } = internals.get(this);
-        return Boolean(selectedMap.size);
+        const { selectionsMap } = internals.get(this);
+        return !!selectionsMap.size;
     }
     get hasItems() {
         const { itemsMap } = internals.get(this);
-        return Boolean(itemsMap.size);
+        return !!itemsMap.size;
     }
     get isAllSelected() {
-        return this.isSelected(this.state.items);
+        const { itemsMap, selectionsMap } = internals.get(this);
+        return itemsMap.size === selectionsMap.size;
     }
     get isValid() {
         const { validators } = internals.get(this).config;
@@ -526,13 +520,16 @@ function createSelector(state, config = {}) {
     return new Selector(state, config);
 }
 const defaults = { createSelector, Selector };
-const selector = createSelector([1, 2, 3, 4]);
-selector.select([2, 3]);
-console.log(selector.state);
-selector.toggle((item) => {
-    return item === 2 || item === 4;
+const selector = createSelector([
+    { id: '1', name: 'John' }
+]);
+const state = selector.state.selected;
+const mapped = state.map(item => {
+    item.name = item.name + ' is awesome!';
+    return item;
 });
-console.log(selector.state);
+mapped.forEach(item => console.log(item.name));
+state.forEach(item => console.log(item.name));
 
 exports['default'] = defaults;
 exports.createSelector = createSelector;

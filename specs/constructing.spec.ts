@@ -85,22 +85,19 @@ describe('Given constructing a Selector instance', () => {
             expect(selector.state).to.deep.equal(initialState);
         });
 
-        it('it will throw if passed invalid state object', () => {
-            const invalid_1 = {};
-            const invalid_2 = { items: [] };
-            const invalid_3 = { selected: [] };
-            const invalid_4 = { items: 'what?!', selected: [] };
-            const invalid_5 = null;
-            const error = /provided state is not valid/;
-            const createWith = state => () => createSelector(state);
+        it('it can be constructed with functions to determine state', () => {
+            const selector = createSelector({
+                items: () => [1,2,3,4],
+                selected: item => item > 2
+            });
 
-            expect(createWith(invalid_1)).to.throw(error);
-            expect(createWith(invalid_2)).to.throw(error);
-            expect(createWith(invalid_3)).to.throw(error);
-            expect(createWith(invalid_4)).to.throw(error);
-            expect(createWith(invalid_5)).to.throw(error);
+            const state = selector.state;
+            const expectedState = {
+                items: [1,2,3,4],
+                selected: [3,4]
+            };
+            expect(state).to.deep.equal(expectedState);
         });
-
     });
 
     context('with configuration', () => {

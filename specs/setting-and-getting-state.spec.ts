@@ -40,6 +40,38 @@ describe('When setting state', () => {
             selector.setState(newState);
             expect(selector.state.selected).to.deep.equal(newState.selected);
         });
+
+        it('it can overwrite current state with the one of provided array', () => {
+            const selector = createSelector({
+                items: [1,2,3,4,5],
+                selected: [1,2,3]
+            });
+
+            selector.setState([6,7,8,9,10,11]);
+            
+            const expectedState = {
+                items: [6,7,8,9,10,11],
+                selected: []
+            };
+
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it will accept functions to determine state', () => {
+            const selector = createSelector([1,2,3,4]);
+
+            selector.setState({
+                items: (state, initialState) => initialState.items.map(item => item * 10),
+                selected: item => item > 20
+            });
+            const state = selector.state;
+            const expectedState = {
+                items: [10,20,30,40],
+                selected: [30,40]
+            };
+            expect(state).to.deep.equal(expectedState);
+        });
+
     });
 
     context('with .setState(...) in track by mode', () => {        
