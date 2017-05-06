@@ -107,12 +107,12 @@ describe('When validating items', () => {
             selector = createSelector(items, { trackBy: 'id' });
         });
 
-        it('will accept a single property to determine result', () => {
+        it('it will accept a single property to determine result', () => {
             const has = selector.hasSome('1');
             expect(has).to.be.true;
         });
 
-        it('will accept an array of properties to determine result', () => {
+        it('it will accept an array of properties to determine result', () => {
             const has = selector.hasSome(['1','2','5']);
             expect(has).to.be.true;
         });

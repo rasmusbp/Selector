@@ -277,3 +277,167 @@ describe('When removing items', () => {
         });
     });
 });
+
+describe('When swapping items', () => {
+    context('with .swap(...) in default mode', () => {
+        it('will replace an item with the one provided', () => {
+            const selector = createSelector([1,2,3]);
+            selector.select(2).swap(2, 20);
+            const expectedState = {
+                items: [1,20,3],
+                selected: [20] 
+            }
+
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('can also swap objects', () => {
+            const han = { id: '2', name: 'Han' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+            const selector = createSelector(items);
+            selector.select(han).swap(han, { id: '2', name: 'Chewie'});
+            const expectedState = {
+                items: [
+                { id: '1', name: 'Luke' },
+                { id: '2', name: 'Chewie'},
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ],
+                selected: [{ id: '2', name: 'Chewie'},] 
+            };
+
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+    });
+
+    context('with .swap(...) in track by mode', () => {
+        it('it will swap an existing item for the one provided', () => {
+            const han = { id: '2', name: 'Han' };
+            const chewie = { id: '2', name: 'Chewie' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+
+            const selector = createSelector(items, { trackBy: 'id' });
+            selector.swap('2', chewie);
+
+            const expectedState = {
+                items: [
+                    { id: '1', name: 'Luke' },
+                    chewie,
+                    { id: '3', name: 'Leia' },
+                    { id: '4', name: 'Ben' },
+                ],
+                selected: [] 
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it will maintain the selection state when swapping an item that is selected', () => {
+            const han = { id: '2', name: 'Han' };
+            const chewie = { id: '2', name: 'Chewie' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+
+            const selector = createSelector(items, { trackBy: 'id' });
+            selector.select(han).swap('2', chewie);
+
+            const expectedState = {
+                items: [
+                    { id: '1', name: 'Luke' },
+                    chewie,
+                    { id: '3', name: 'Leia' },
+                    { id: '4', name: 'Ben' },
+                ],
+                selected: [chewie] 
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it will be a noop if trying to swap non-existing item', () => {
+            const han = { id: '2', name: 'Han' };
+            const chewie = { id: '2', name: 'Chewie' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+
+            const selector = createSelector(items, { trackBy: 'id' });
+            selector.select(han).swap('10', chewie);
+
+            const expectedState = {
+                items: [
+                    { id: '1', name: 'Luke' },
+                    han,
+                    { id: '3', name: 'Leia' },
+                    { id: '4', name: 'Ben' },
+                ],
+                selected: [han] 
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+    });
+
+    context('with .swap(...) in debug by mode', () => {
+        let warn : sinon.SinonStub;
+
+        beforeEach(() => warn = sinon.stub(console, 'warn'));
+        afterEach(() => warn.restore());
+
+        it('it will warn if trying to swap non-existing item', () => {
+            const han = { id: '2', name: 'Han' };
+            const chewie = { id: '2', name: 'Chewie' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+
+            const selector = createSelector(items, { debug: true, trackBy: 'id' });
+            selector.select(han).swap('10', chewie);
+
+            const warning = warn.lastCall.args[0];
+            expect(warning).to.include('swapping --> item does not exist.');
+        });
+    });
+
+    context('with .swap(...) in strict by mode', () => {
+        let err : sinon.SinonStub;
+
+        beforeEach(() => err = sinon.stub(console, 'error'));
+        afterEach(() => err.restore());
+
+        it('it will log an error if trying to swap non-existing item', () => {
+            const han = { id: '2', name: 'Han' };
+            const chewie = { id: '2', name: 'Chewie' };
+            const items = [
+                { id: '1', name: 'Luke' },
+                han,
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+
+            const selector = createSelector(items, { strict: true, trackBy: 'id' });
+            selector.select(han).swap('10', chewie);
+
+            const error = err.lastCall.args[0];
+            expect(error).to.include('swapping --> item does not exist.');
+        });
+    });
+});

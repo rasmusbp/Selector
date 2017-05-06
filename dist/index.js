@@ -9,7 +9,9 @@ var errors = {
     ALREADY_EXIST: context => `${context} --> item already exist.`,
     READ_ONLY: context => `${context} --> ${context} is a read only property`,
     ALREADY_SELECTED: context => `${context} --> item is already selected.`,
-    NOT_SELECTED: context => `${context} --> item is not selected.`
+    NOT_SELECTED: context => `${context} --> item is not selected.`,
+    NO_TRACKBY: context => `${context} --> action only works in track-by mode.`,
+    INVALID_TRACKBY_ITEM: context => `${context} --> item(s) must be objects in track-by mode.`
 };
 
 class SelectorError {
@@ -67,7 +69,7 @@ class Selector {
             }, settings.providers)
         }, settings);
         config.logLevel = config.strict ? 'error' : 'warn';
-        const createStateError = ({ reason, data, context = 'Selector' }) => {
+        const createError = ({ reason, data, context = 'Selector' }) => {
             const errFn = errors[reason] || (() => 'null');
             const ErrorProvider = config.providers.Error;
             return new ErrorProvider({
@@ -110,15 +112,9 @@ class Selector {
                 dispatchChange(changes);
             }
         };
-        const get = (item) => {
-            return itemsMap.get(resolveKey(item));
-        };
-        const has = (item) => {
-            return itemsMap.has(resolveKey(item));
-        };
-        const isSelected = (item) => {
-            return selectionsMap.has(resolveKey(item));
-        };
+        const get = (item) => itemsMap.get(resolveKey(item));
+        const has = (item) => itemsMap.has(resolveKey(item));
+        const isSelected = (item) => selectionsMap.has(resolveKey(item));
         const log = (errors$$1, level = config.logLevel) => {
             if (errors$$1.length && (config.strict || config.debug)) {
                 errors$$1.forEach(error => error.print({ level }));
@@ -136,16 +132,21 @@ class Selector {
                     return predicate(state, initialState);
                 },
                 validate(item, context) {
-                    return !has(item) ? item : createStateError({
-                        reason: 'ALREADY_EXIST',
-                        data: item,
-                        context,
-                    });
+                    if (has(item)) {
+                        return createError({
+                            reason: 'ALREADY_EXIST',
+                            data: item,
+                            context,
+                        });
+                    }
+                    else {
+                        return item;
+                    }
                 }
             },
             getting: {
                 validate(item, context) {
-                    return has(item) ? get(item) : createStateError({
+                    return has(item) ? get(item) : createError({
                         reason: 'NOT_EXIST',
                         data: item,
                         context,
@@ -155,14 +156,14 @@ class Selector {
             selecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createStateError({
+                        return createError({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     }
                     else if (isSelected(item)) {
-                        return createStateError({
+                        return createError({
                             reason: 'ALREADY_SELECTED',
                             data: get(item),
                             context,
@@ -176,14 +177,14 @@ class Selector {
             deselecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createStateError({
+                        return createError({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     }
                     else if (!isSelected(item)) {
-                        return createStateError({
+                        return createError({
                             reason: 'NOT_SELECTED',
                             data: get(item),
                             context,
@@ -246,15 +247,6 @@ class Selector {
             }
             return item[trackBy];
         };
-        const isValidStateSchema = (state) => {
-            if (!state)
-                return false;
-            return ([
-                typeof state === 'object',
-                (Array.isArray(state.items) || typeof state.items === 'function'),
-                (Array.isArray(state.selected) || typeof state.selected === 'function')
-            ]).every(condition => condition);
-        };
         const createStateObject = (input) => {
             if (Array.isArray(input)) {
                 return {
@@ -275,8 +267,9 @@ class Selector {
             subscribers,
             selectionsMap,
             resolveInput,
+            resolveKey,
             resolveItemsWith,
-            createStateError,
+            createError,
             createStateObject,
             has,
             get,
@@ -395,22 +388,31 @@ class Selector {
         const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input);
         return !!hits.length;
     }
-    // TODO: refactor
     swap(input, newItem) {
-        const { dispatch, itemsMap, selectionsMap, resolveItemsWith, resolveKey } = internals.get(this);
-        if (!this.has(input)) {
-            throw new Error(`Selector#swap -> cannot swap non-existing item`);
+        const { config, log, createError, resolveItemsWith, resolverFor, resolveKey, isSelected, itemsMap, dispatch, selectionsMap } = internals.get(this);
+        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input, 'swapping');
+        let hasErrors = false;
+        if (errors$$1.length) {
+            hasErrors = true;
+            log(errors$$1);
         }
-        const itemToReplace = resolveItemsWith(input)[0];
-        const key = resolveKey(input);
-        if (this.isSelected(itemToReplace)) {
-            selectionsMap.set(key, newItem);
+        const oldItem = hits[0];
+        const key = resolveKey(oldItem);
+        const wasSelected = isSelected(oldItem);
+        let hasChanges = false;
+        if (!hasErrors) {
+            hasChanges = true;
+            itemsMap.set(key, newItem);
+            if (wasSelected) {
+                selectionsMap.set(key, newItem);
+            }
         }
-        itemsMap.set(key, newItem);
-        dispatch({
-            [ADD]: [itemsMap.get(key)],
-            [REMOVE]: [itemToReplace]
-        });
+        dispatch({ hasChanges, hasErrors }, {
+            [ADD]: [newItem],
+            [SELECT]: wasSelected ? [newItem] : [],
+            [DESELECT]: wasSelected ? [oldItem] : [],
+            [REMOVE]: [oldItem]
+        }, errors$$1);
         return this;
     }
     setState(newState) {
