@@ -1,19 +1,19 @@
-import Selector from './selector';
-import {ISelectorStateInput, ISelectorSettings} from './selector';
+/// <reference path="./selector.d.ts"/>
 
-function createSelector <ItemType = any, TrackByType = any>(
-    state?: ISelectorStateInput<ItemType, TrackByType> | ItemType[],
-    config: ISelectorSettings = {}) {
-    return new Selector<ItemType, TrackByType>(state, config);
+import Selector from './selector';
+
+export function createSelector <T = any, P = any>(
+    state?: Slc.StateInput<T,P> | T[],
+    config: Slc.Settings = {}) : Slc.Selector<T,P> {
+    return new Selector<T,P>(state, config);
 }
 
-const defaults = { createSelector, Selector };
-export default defaults;
-export { createSelector, Selector };
+export default { createSelector };
 
-const selector = createSelector<{ id: string, name: string }>([
+const selector = createSelector<{ id: string, name: string }, number>([
     { id: '1', name: 'John' }
 ]);
+
 
 const state = selector.state.selected;
 const mapped = state.map(item => {

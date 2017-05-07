@@ -1,57 +1,6 @@
+/// <reference path="./selector.d.ts"/>
 import errors from './error-messages';
 import {default as SelectorError, ISelectorError} from './selector-error';
-
-export interface ISelectorProviders {
-    Error: any;
-}
-
-export interface ISelectorSettings {
-    trackBy?: string;
-    strict?: boolean;
-    debug?: boolean;
-    validators?: Function[];
-    providers?: ISelectorProviders;
-}
-
-export interface ISelectorConfig extends ISelectorSettings {
-    logLevel?: string;
-}
-
-export interface ISelectorState<T,P> {
-    items: T[];
-    selected: T[];
-}
-
-export interface ISelectorStateInput<T,P> {
-    items: T[] | Function;
-    selected: T[ ] | P[] | Function;
-}
-
-export interface ISelectorChange<T> {
-    select? : T[];
-    deselect? : T[];
-    add? : T[];
-    remove? : T[];
-}
-
-export interface ISelectorChangeInput<T,P> {
-    select? : T[] | P[] | Function;
-    deselect? : T[] | P[] | Function;
-    add? : T[] | Function;
-    remove? : T[] | P[] | Function;
-}
-
-export interface ISelector<T,P> extends Selector<T,P> {
-    
-}
-
-export interface IObserver<T,P> {
-    (changes: ISelectorChange<T>, state: ISelectorState<T,P>, selector: ISelector<T,P>): void;
-}
-
-export interface IErrorObserver<T,P> {
-    (errors: any, state: ISelectorState<T,P>, selector: ISelector<T,P>): void;
-}
 
 const internals = new WeakMap();
 const noop = () => {};
@@ -61,10 +10,10 @@ const SELECT = 'select';
 const DESELECT = 'deselect';
 
 class Selector <ItemType = any, TrackByType = any> {
-    constructor (initialState : ISelectorStateInput<ItemType, TrackByType> | ItemType[] = {
+    constructor (initialState : Slc.StateInput<ItemType, TrackByType> | ItemType[] = {
         items: [],
         selected: []
-    }, settings : ISelectorSettings) {
+    }, settings : Slc.Settings) {
 
         const itemsMap = new Map();
         const selectionsMap = new Map();
@@ -72,7 +21,7 @@ class Selector <ItemType = any, TrackByType = any> {
             onChanges: new Set(),
             onErrors: new Set()
         };
-        const config : ISelectorConfig = Object.assign({
+        const config : Slc.Config = Object.assign({
             trackBy: undefined,
             strict: false,
             debug: false,
@@ -110,7 +59,7 @@ class Selector <ItemType = any, TrackByType = any> {
             }, []);
         }
 
-        const dispatchChange = (changes : ISelectorChange<ItemType>) => {
+        const dispatchChange = (changes : Slc.Change<ItemType>) => {
              subscribers.onChanges.forEach((observer) => {
                 observer(changes, this.state, this);
             });
@@ -125,7 +74,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
         const dispatch = (
             status: { hasErrors: boolean, hasChanges: boolean },
-            changes? : ISelectorChange<ItemType>,
+            changes? : Slc.Change<ItemType>,
             errors?: ISelectorError<ItemType>[]
         ) => {
             
@@ -325,8 +274,8 @@ class Selector <ItemType = any, TrackByType = any> {
     }
 
     subscribe (
-        observer : IObserver<ItemType, TrackByType>, 
-        errorObserver? : IErrorObserver<ItemType,TrackByType>
+        observer : Slc.Observer<ItemType, TrackByType>, 
+        errorObserver? : Slc.ErrorObserver<ItemType,TrackByType>
     ) {
         const { subscribers } = internals.get(this);
         const { onChanges, onErrors } = subscribers;
@@ -412,7 +361,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return hits.every(isSelected);
     }
 
-    isSomeSelected (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
+    isSomeSelected (input : ItemType[] | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         if (!this.hasSelections) return false;
         
@@ -440,7 +389,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return !!hits.length && hits.every(has);
     }
 
-    hasSome (input : ItemType | ItemType[] | TrackByType | TrackByType[] | Function) : boolean {
+    hasSome (input : ItemType[] | TrackByType[] | Function) : boolean {
         const { resolveItemsWith, resolverFor } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input);
         return !!hits.length;
@@ -492,7 +441,7 @@ class Selector <ItemType = any, TrackByType = any> {
 
     }
 
-    setState (newState : ISelectorStateInput<ItemType, TrackByType> | ItemType[]) {
+    setState (newState : Slc.StateInput<ItemType, TrackByType> | ItemType[]) {
         const { state } = this;
         const { createStateObject } = internals.get(this);
         const { items, selected } = createStateObject(newState)
@@ -504,7 +453,7 @@ class Selector <ItemType = any, TrackByType = any> {
         });
     }
 
-    applyChange (changes : ISelectorChangeInput<ItemType, TrackByType>) {
+    applyChange (changes : Slc.ChangeInput<ItemType, TrackByType>) {
         const {
             log,
             config,
@@ -600,7 +549,7 @@ class Selector <ItemType = any, TrackByType = any> {
         return this;
     }
 
-    get state () : ISelectorState<ItemType, TrackByType> {
+    get state () : Slc.State<ItemType, TrackByType> {
         const { selectionsMap, itemsMap } = internals.get(this);
         return {
             items: Array.from<ItemType>(itemsMap.values()),

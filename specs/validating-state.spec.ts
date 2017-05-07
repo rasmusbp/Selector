@@ -66,13 +66,13 @@ describe('When validating items', () => {
     context('with .hasSome(...)', () => {
         it('it will return true if provided item exists on state object', () => {
             const selector = createSelector([1,2,3]);
-            const has = selector.hasSome(2);
+            const has = selector.hasSome([2]);
             expect(has).to.be.true;
         });
 
         it('it will return false if provided item does not exists on state object', () => {
             const selector = createSelector([1,2,3]);
-            const has = selector.hasSome(5);
+            const has = selector.hasSome([5]);
             expect(has).to.be.false;
         });
 
@@ -265,7 +265,7 @@ describe('When validating selected', () => {
                 items: [1,2,3],
                 selected: [2]
             });
-            const isSomeSelected = selector.isSomeSelected(2);
+            const isSomeSelected = selector.isSomeSelected([2]);
             expect(isSomeSelected).to.be.true;
         });
 
@@ -274,7 +274,7 @@ describe('When validating selected', () => {
                 items: [1,2,3],
                 selected: [3]
             });
-            const isSomeSelected = selector.isSomeSelected(2);
+            const isSomeSelected = selector.isSomeSelected([2]);
             expect(isSomeSelected).to.be.false;
         });
 
@@ -338,7 +338,7 @@ describe('When validating selected', () => {
                 items: [1,2,3],
                 selected: [3]
             }, { debug: true });
-            selector.isSomeSelected(4);
+            selector.isSomeSelected([4]);
             const warning = warn.lastCall.args[0];
             expect(warning).to.include('isSomeSelected --> item does not exist');
         });
@@ -350,7 +350,7 @@ describe('When validating selected', () => {
                 items: [1,2,3],
                 selected: [3]
             }, { strict: true });
-            selector.isSomeSelected(4);
+            selector.isSomeSelected([4]);
             const warning = warn.lastCall.args[0];
             expect(warning).to.include('isSomeSelected --> item does not exist');
         });

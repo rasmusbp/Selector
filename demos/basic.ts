@@ -1,5 +1,4 @@
-import {createSelector} from '../src';
+import {createSelector} from '../src/index';
 
-const items = [1,2,3,4,5,6,7];
-const selector = createSelector(items);
+const selector = createSelector();
 
