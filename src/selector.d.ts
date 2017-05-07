@@ -3,9 +3,48 @@
 // Definitions by: Rasmus Bangsted Pedersen <https://github.com/rasmusbp/Selector>
 
 declare namespace Slc {
+    export class StateError<T> {
+        /**
+         * Data that caused the error
+         * 
+         * @type {T}
+         * @memberof StateError
+         */
+        readonly data: T;
+
+        /**
+         * Human-readable message
+         * 
+         * @type {string}
+         * @memberof StateError
+         */
+        readonly message: string;
+
+        /**
+         * Reason for error
+         * 
+         * @type {string}
+         * @memberof StateError
+         */
+        readonly reason: string;
+
+        /**
+         * Log or throw the error
+         * 
+         * @param {options} { level: string } 
+         * @returns {StateError<T>} 
+         * 
+         * @memberof StateError
+         */
+        print(options?: { level: string}) : StateError<T>;
+    }
+
+    export interface LogOptions {
+        level: string
+    }
 
     export class Selector<T,P> {
-        constructor (state : Slc.StateInput<T, P> | T[], settings : Slc.Settings);
+        constructor (state : Slc.StateInput<T, P> | T[], config : Slc.Settings);
 
         /**
          * Set new state
@@ -220,6 +259,58 @@ declare namespace Slc {
         deselectAll() : Selector<T,P>;
 
         /**
+         * Toggle the state of a single item
+         * 
+         * @param {T} input 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        toggle (input : T) : Selector<T,P>
+
+        /**
+         * Toggle the state of an array of items
+         * 
+         * @param {T[]} input 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        toggle (input : T[]) : Selector<T,P>
+
+        /**
+         * Toggle the state of a single item based on property
+         * (track-by mode only)
+         * 
+         * @param {P} input 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        toggle (input : P) : Selector<T,P>
+
+        /**
+         * Toggle the state of an array of items based on properties
+         * (track-by mode only)
+         * 
+         * @param {P[]} input 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        toggle (input : P[]) : Selector<T,P>
+
+        /**
+         * Toggle the state of item(s) based on the return value of predicate
+         * 
+         * @param {Slc.Predicate<T>} input 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        toggle (input : Slc.Predicate<T>) : Selector<T,P>
+
+        /**
          * Add a single item
          * 
          * @param {T} input 
@@ -247,7 +338,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        add(input: Slc.Iterator<T,P>) : Selector<T,P>;
+        add(input: Slc.Iterator<T>) : Selector<T,P>;
 
         /**
          * Swap an existing item for a new item
@@ -275,8 +366,8 @@ declare namespace Slc {
         /**
          * Subscribe to all changes of instance's state
          * 
-         * @param {Slc.Observer<T,P>} observer 
-         * @param {Slc.ErrorObserver<T,P>} [errorObserver] 
+         * @param {Slc.Observer} observer 
+         * @param {Slc.ErrorObserver} [errorObserver] 
          * @returns {Slc.Unsubscriber}
          * 
          * @memberof Selector
@@ -333,7 +424,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        has (input : Slc.Iterator<T,P>) : boolean;
+        has (input : Slc.Iterator<T>) : boolean;
 
         /**
          * Check if some items exist
@@ -556,7 +647,7 @@ declare namespace Slc {
         logLevel?: string;
     }
 
-    interface State<T,P> {
+    interface State<T> {
         items: T[];
         selected: T[];
     }
@@ -573,6 +664,13 @@ declare namespace Slc {
         remove? : T[];
     }
 
+    interface ReadOnlyChange<T> {
+        readonly select : T[];
+        readonly deselect : T[];
+        readonly add : T[];
+        readonly remove : T[];
+    }
+
     interface ChangeInput<T,P> {
         select? : T[] | P[] | Function;
         deselect? : T[] | P[] | Function;
@@ -581,19 +679,19 @@ declare namespace Slc {
     }
 
     interface Observer<T,P> {
-        (changes: Change<T>, state: State<T,P>, selector: Selector<T,P>): void;
+        (changes: ReadOnlyChange<T>, state: State<T>, selector: Selector<T,P>): void;
     }
 
     interface ErrorObserver<T,P> {
-        (errors: any, state: State<T,P>, selector: Selector<T,P>): void;
+        (errors: StateError<T>[], state: State<T>, selector: Selector<T,P>): void;
     }
 
     interface Predicate<T> {
         (item: T, index: number) : boolean;
     }
 
-    interface Iterator<T,P> {
-        (state: State<T,P>) : T | T[] | P | P[];
+    interface Iterator<T> {
+        (state: State<T>) : T | T[];
     }
 
     interface Unsubscriber {

@@ -6,6 +6,8 @@ chai.use(require('sinon-chai'));
 
 import {createSelector} from '../src/index';
 
+class StateError {};
+
 describe('When subscribing to state changes', () => {
     context('with .subscribe(...) in default mode', () => {
         it('it will notify on changes', () => {
@@ -47,13 +49,9 @@ describe('When subscribing to state changes', () => {
 
             selector.add(1).select(1).add(1);
 
-            const mockErrors = [{
-                message: 'Selector@add --> item already exist.',
-                reason: 'ALREADY_EXIST',
-                data: 1
-            }];
+            const mockErrors = [new StateError()];
 
-           expect(errorObserver).to.have.been.calledWithExactly(mockErrors, selector.state, selector);
+            expect(errorObserver).to.have.been.calledWithExactly(mockErrors, selector.state, selector);
         });
 
         it('it will not notify on non-mutations', () => {
@@ -215,15 +213,7 @@ describe('When subscribing to state changes', () => {
                     remove: []
                 });
 
-                const mockErrors = [{
-                    message: 'Selector@add --> item already exist.',
-                    reason: 'ALREADY_EXIST',
-                    data: 1
-                }, {
-                    message: 'Selector@select --> item is already selected.',
-                    reason: 'ALREADY_SELECTED',
-                    data: 2
-                }];
+                const mockErrors = [new StateError(), new StateError()];
 
                 expect(errorObserver).to.have.been.calledWithExactly(mockErrors, selector.state, selector);
             });
