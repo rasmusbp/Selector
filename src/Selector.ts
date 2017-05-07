@@ -10,7 +10,7 @@ const SELECT = 'select';
 const DESELECT = 'deselect';
 
 class Selector <T = any, P = any> implements Slc.Selector<T,P> {
-    constructor (initialState : Slc.StateInput<T, P> | T[] = {
+    constructor (initialState : Slc.StateLike<T, P> | T[] = {
         items: [],
         selected: []
     }, settings : Slc.Settings) {
@@ -60,14 +60,8 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
         }
 
         const dispatchChange = (changes : Slc.Change<T>) => {
-            const readOnlyChanges : Slc.ReadOnlyChange<T> = {
-                get add () { return changes[ADD] },
-                get remove () { return changes[REMOVE] },
-                get select () { return changes[SELECT] },
-                get deselect () { return changes[DESELECT] },
-            }
-             subscribers.onChanges.forEach((observer) => {
-                observer(readOnlyChanges, this.state, this);
+            subscribers.onChanges.forEach((observer) => {
+                observer(changes, this.state, this);
             });
         }
 
@@ -270,13 +264,13 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
         
     }
 
-    static mirror (change) {
-        return {
-            [ADD]: (change[REMOVE] || []).slice(0),
-            [REMOVE]: (change[ADD] || []).slice(0),
-            [SELECT]: (change[DESELECT] || []).slice(0),
-            [DESELECT]: (change[SELECT] || []).slice(0),
-        }
+    reverse (change : Slc.Change<T>) {
+        return this.applyChange({
+                [ADD]: change[REMOVE],
+                [REMOVE]: change[ADD],
+                [SELECT]: change[DESELECT],
+                [DESELECT]: change[SELECT],
+            });
     }
 
     subscribe (
@@ -447,7 +441,7 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
 
     }
 
-    setState (newState : Slc.StateInput<T, P> | T[]) {
+    setState (newState : Slc.StateLike<T,P> | T[]) {
         const { state } = this;
         const { createStateObject } = internals.get(this);
         const { items, selected } = createStateObject(newState)
@@ -459,7 +453,7 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
         });
     }
 
-    applyChange (changes : Slc.ChangeInput<T, P>) {
+    applyChange (changes : Slc.ChangeLike<T, P>) {
         const {
             log,
             config,

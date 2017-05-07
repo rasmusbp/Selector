@@ -44,27 +44,27 @@ declare namespace Slc {
     }
 
     export class Selector<T,P> {
-        constructor (state : Slc.StateInput<T, P> | T[], config : Slc.Settings);
+        constructor (state : Slc.StateLike<T, P> | T[], config : Slc.Settings);
 
         /**
          * Set new state
          * 
-         * @param {(Slc.StateInput<T,P> | T[])} newState 
+         * @param {(Slc.StateLike<T,P> | T[])} newState 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        setState (newState : Slc.StateInput<T,P> | T[]) : Selector<T,P>;
+        setState (newState : Slc.StateLike<T,P> | T[]) : Selector<T,P>;
 
         /**
          * Apply set of changes
          * 
-         * @param {Slc.ChangeInput} changes 
+         * @param {Slc.ChangeLike} changes 
          * @returns {Selector} 
          * 
          * @memberof Selector
          */
-        applyChange (changes : Slc.ChangeInput<T,P>) : Selector<T,P>;
+        applyChange (changes : Slc.ChangeLike<T,P>) : Selector<T,P>;
 
         /**
          * Reset to initial state
@@ -364,6 +364,16 @@ declare namespace Slc {
         swap(input : P, newItem : T) : Selector<T,P>;
 
         /**
+         * Applies a reversed change, i.e added items becomes removed items.
+         * 
+         * @static
+         * @param {Slc.Change<T>} change 
+         * 
+         * @memberof Selector
+         */
+        reverse(change: Slc.Change<T>) : Selector<T,P>
+
+        /**
          * Subscribe to all changes of instance's state
          * 
          * @param {Slc.Observer} observer 
@@ -652,34 +662,27 @@ declare namespace Slc {
         selected: T[];
     }
 
-    interface StateInput<T,P> {
-        items: T[] | Function;
-        selected: T[ ] | P[] | Function;
+    interface StateLike<T,P> {
+        items: T[] | Iterator<T>;
+        selected: T[] | P[] | Predicate<T>;
     }
 
     interface Change<T> {
-        select? : T[];
-        deselect? : T[];
-        add? : T[];
-        remove? : T[];
-    }
-
-    interface ReadOnlyChange<T> {
         readonly select : T[];
         readonly deselect : T[];
         readonly add : T[];
         readonly remove : T[];
     }
 
-    interface ChangeInput<T,P> {
-        select? : T[] | P[] | Function;
-        deselect? : T[] | P[] | Function;
-        add? : T[] | Function;
-        remove? : T[] | P[] | Function;
+    interface ChangeLike<T,P> {
+        select? : T[] | P[] | Predicate<T>;
+        deselect? : T[] | P[] | Predicate<T>;
+        add? : T[] | Iterator<T>;
+        remove? : T[] | P[] | Predicate<T>;
     }
 
     interface Observer<T,P> {
-        (changes: ReadOnlyChange<T>, state: State<T>, selector: Selector<T,P>): void;
+        (changes: Change<T>, state: State<T>, selector: Selector<T,P>): void;
     }
 
     interface ErrorObserver<T,P> {
@@ -691,7 +694,7 @@ declare namespace Slc {
     }
 
     interface Iterator<T> {
-        (state: State<T>) : T | T[];
+        (state: State<T>, initialState: State<T>) : T | T[];
     }
 
     interface Unsubscriber {
