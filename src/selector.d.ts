@@ -44,27 +44,27 @@ declare namespace Slc {
     }
 
     export class Selector<T,P> {
-        constructor (state : Slc.StateLike<T, P> | T[], config : Slc.Settings);
+        constructor (state : StateLike<T, P> | T[], config : Settings);
 
         /**
          * Set new state
          * 
-         * @param {(Slc.StateLike<T,P> | T[])} newState 
+         * @param {(StateLike<T,P> | T[])} newState 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        setState (newState : Slc.StateLike<T,P> | T[]) : Selector<T,P>;
+        setState (newState : StateLike<T,P> | T[]) : Selector<T,P>;
 
         /**
          * Apply set of changes
          * 
-         * @param {Slc.ChangeLike} changes 
+         * @param {ChangeLike} changes 
          * @returns {Selector} 
          * 
          * @memberof Selector
          */
-        applyChange (changes : Slc.ChangeLike<T,P>) : Selector<T,P>;
+        applyChange (changes : ChangeLike<T,P>) : Selector<T,P>;
 
         /**
          * Reset to initial state
@@ -120,12 +120,12 @@ declare namespace Slc {
         /**
          * Select a single item based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        select(input: Slc.Predicate<T>) : Selector<T,P>;
+        select(input: Predicate<T>) : Selector<T,P>;
 
         /**
          * Select all items
@@ -181,12 +181,12 @@ declare namespace Slc {
         /**
          * Remove a single item based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        remove(input: Slc.Predicate<T>) : Selector<T,P>;
+        remove(input: Predicate<T>) : Selector<T,P>;
 
         /**
          * Remove all items (will deselect all items as well)
@@ -242,12 +242,12 @@ declare namespace Slc {
         /**
          * Deselect a single item based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        deselect(input: Slc.Predicate<T>) : Selector<T,P>;
+        deselect(input: Predicate<T>) : Selector<T,P>;
 
          /**
          * Deselect all items
@@ -303,12 +303,12 @@ declare namespace Slc {
         /**
          * Toggle the state of item(s) based on the return value of predicate
          * 
-         * @param {Slc.Predicate<T>} input 
+         * @param {Predicate<T>} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        toggle (input : Slc.Predicate<T>) : Selector<T,P>
+        toggle (input : Predicate<T>) : Selector<T,P>
 
         /**
          * Add a single item
@@ -333,12 +333,12 @@ declare namespace Slc {
         /**
          * Add item to instance based on return value of iterator
          * 
-         * @param {Slc.Iterator} input 
+         * @param {Iterator} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        add(input: Slc.Iterator<T>) : Selector<T,P>;
+        add(input: Iterator<T>) : Selector<T,P>;
 
         /**
          * Swap an existing item for a new item
@@ -364,25 +364,25 @@ declare namespace Slc {
         swap(input : P, newItem : T) : Selector<T,P>;
 
         /**
-         * Applies a reversed change, i.e added items becomes removed items.
+         * Revert provided change, i.e added items becomes removed items.
          * 
          * @static
-         * @param {Slc.Change<T>} change 
+         * @param {Change<T>} change 
          * 
          * @memberof Selector
          */
-        reverse(change: Slc.Change<T>) : Selector<T,P>
+        revert(change: Change<T>) : Selector<T,P>
 
         /**
          * Subscribe to all changes of instance's state
          * 
-         * @param {Slc.Observer} observer 
-         * @param {Slc.ErrorObserver} [errorObserver] 
-         * @returns {Slc.Unsubscriber}
+         * @param {Observer} observer 
+         * @param {ErrorObserver} [errorObserver] 
+         * @returns {Unsubscriber}
          * 
          * @memberof Selector
          */
-        subscribe (observer : Slc.Observer<T,P>, errorObserver? : Slc.ErrorObserver<T,P>) : Slc.Unsubscriber;
+        subscribe (observer : Observer<T,P>, errorObserver? : ErrorObserver<T,P>) : Unsubscriber;
 
         /**
          * Check existence of a single item
@@ -429,12 +429,12 @@ declare namespace Slc {
         /**
          * Check existence of item(s) based on return value of iterator
          * 
-         * @param {Slc.Iterator} input 
+         * @param {Iterator} input 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        has (input : Slc.Iterator<T>) : boolean;
+        has (input : Predicate<T>) : boolean;
 
         /**
          * Check if some items exist
@@ -460,12 +460,12 @@ declare namespace Slc {
         /**
          * Check if some items exist based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        hasSome (input : Slc.Predicate<T>) : boolean;
+        hasSome (input : Predicate<T>) : boolean;
 
         /**
          * Check if item is selected
@@ -512,12 +512,12 @@ declare namespace Slc {
         /**
          * Check if item(s) are selected based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        isSelected (input: Slc.Predicate<T>) : boolean;
+        isSelected (input: Predicate<T>) : boolean;
 
         /**
          * Check if item is the only selected
@@ -564,12 +564,12 @@ declare namespace Slc {
         /**
          * Check if items(s) are the only selected based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        isOnlySelected (input: Slc.Predicate<T>) : boolean;
+        isOnlySelected (input: Predicate<T>) : boolean;
         
         /**
          * Check if some items in array are selected
@@ -595,12 +595,12 @@ declare namespace Slc {
          /**
          * Check if some items are selected based on return value of predicate
          * 
-         * @param {Slc.Predicate} input 
+         * @param {Predicate} input 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        isSomeSelected (input: Slc.Predicate<T>) : boolean;
+        isSomeSelected (input: Predicate<T>) : boolean;
 
          /**
           * True if all items are selected
@@ -690,7 +690,7 @@ declare namespace Slc {
     }
 
     interface Predicate<T> {
-        (item: T, index: number) : boolean;
+        (item: T, index: number): boolean;
     }
 
     interface Iterator<T> {

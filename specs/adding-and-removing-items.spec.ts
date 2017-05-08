@@ -206,7 +206,7 @@ describe('When removing items', () => {
                 { id: '4', name: 'Ben' },
             ];
 
-            const selector = createSelector<{id: string}>({
+            const selector = createSelector<{}, string>({
                 items,
                 selected: [
                     { id: '4', name: 'Ben' },
@@ -214,7 +214,7 @@ describe('When removing items', () => {
                 ]
             }, { trackBy: 'id' });
 
-            selector.remove('3');
+            selector.remove('3')
             
             const expectedState = {
                 items: [

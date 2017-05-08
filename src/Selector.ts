@@ -9,8 +9,8 @@ const REMOVE = 'remove';
 const SELECT = 'select';
 const DESELECT = 'deselect';
 
-class Selector <T = any, P = any> implements Slc.Selector<T,P> {
-    constructor (initialState : Slc.StateLike<T, P> | T[] = {
+class Selector <T,P> implements Slc.Selector<T,P> {
+    constructor (initialState : Slc.StateLike<T,P> | T[] = {
         items: [],
         selected: []
     }, settings : Slc.Settings) {
@@ -264,7 +264,7 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
         
     }
 
-    reverse (change : Slc.Change<T>) {
+    revert (change : Slc.Change<T>) {
         return this.applyChange({
                 [ADD]: change[REMOVE],
                 [REMOVE]: change[ADD],
@@ -383,7 +383,7 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
                
     }
 
-    has (input : T | T[] | P | P[] | Slc.Iterator<T>) : boolean {
+    has (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
         const { resolveItemsWith, resolverFor, has } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.all, input);
         return !!hits.length && hits.every(has);
@@ -473,6 +473,30 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
                 return acc;
             }
             const actions = {
+                [DESELECT]: () => {
+                    const { hits, errors } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT); 
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+                    
+                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : []; 
+                    acc.hasChanges = acc.hasChanges || !!change.length;
+
+                    acc.changes[DESELECT].push(...change);
+                 },
+
+                [SELECT]: () => {
+                    const { hits, errors } = resolveItemsWith(resolverFor.selecting, changes[SELECT], SELECT);
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+
+                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : []; 
+                    acc.hasChanges = acc.hasChanges || !!change.length;
+
+                    acc.changes[SELECT] = change;
+                 },
+                 
                 [REMOVE]: () => {
                     const { hits, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVE], REMOVE);
                     log(errors);
@@ -501,30 +525,6 @@ class Selector <T = any, P = any> implements Slc.Selector<T,P> {
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[ADD] = change;
-                 },
-
-                [DESELECT]: () => {
-                    const { hits, errors } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT); 
-                    log(errors);
-                    acc.errors.push(...errors);
-                    acc.hasErrors = acc.hasErrors || !!errors.length;
-                    
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : []; 
-                    acc.hasChanges = acc.hasChanges || !!change.length;
-
-                    acc.changes[DESELECT].push(...change);
-                 },
-
-                [SELECT]: () => {
-                    const { hits, errors } = resolveItemsWith(resolverFor.selecting, changes[SELECT], SELECT);
-                    log(errors);
-                    acc.errors.push(...errors);
-                    acc.hasErrors = acc.hasErrors || !!errors.length;
-
-                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : []; 
-                    acc.hasChanges = acc.hasChanges || !!change.length;
-
-                    acc.changes[SELECT] = change;
                  }
             }
 
