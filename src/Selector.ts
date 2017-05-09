@@ -15,12 +15,12 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         selected: []
     }, settings : Slc.Settings) {
 
-        const itemsMap = new Map();
-        const selectionsMap = new Map();
+        const stateMap = new Map();
         const subscribers = {
             onChanges: new Set(),
             onErrors: new Set()
         };
+        const currentState : Slc.State<T> = { items: [], selected: [] };
         const config : Slc.Config = Object.assign({
             trackBy: undefined,
             strict: false,
@@ -42,23 +42,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 data
             });
         }
-
-        const addTo = (map, items) => {
-            return items.reduce((hits, item) => {
-                const key = resolveKey(item);
-                map.set(key, item);
-                return [...hits, item];
-            }, []);
-        }
-
-        const removeFrom = (map, items) => {
-            return items.reduce((hits, item) => {
-                const key = resolveKey(item);
-                const wasRemoved = map.delete(key);                
-                return wasRemoved ? [...hits, item] : hits;
-            }, []);
-        }
-
+    
         const dispatchChange = (changes : Slc.Change<T>) => {
             subscribers.onChanges.forEach((observer) => {
                 observer(changes, this.state, this);
@@ -71,27 +55,53 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             });
         }
 
-
         const dispatch = (
             status: { hasErrors: boolean, hasChanges: boolean },
             changes? : Slc.Change<T>,
             errors?: Slc.StateError<T>[]
-        ) => {
-            
+        ) => {    
             if (status.hasErrors) {
                 dispatchErrors(errors);
                 if (config.strict) return;
             }
-
             if (status.hasChanges) {
                 dispatchChange(changes);
             }
-
         }
 
-        const get = (item) => itemsMap.get(resolveKey(item))
-        const has = (item) => itemsMap.has(resolveKey(item))
-        const isSelected = (item) => selectionsMap.has(resolveKey(item))
+        const get = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && !current.filtered ? current.value : undefined
+        };
+        const has = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && current !== 0 && !current.filtered;
+        };
+        const isSelected = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && current !== 0 && current.selected && !current.filtered;
+        }
+
+        const addToStateMap = (items, state) => {
+            return items.reduce((hits, item) => {
+                const key = resolveKey(item);
+                const current = stateMap.get(key); 
+                if (current) {
+                    Object.assign(current, state);
+                    return [...hits, current.value];
+                } else {
+                    stateMap.set(key, { value: item, ...state });
+                    return [...hits, item];
+                }
+            }, []);
+        }
+
+        const removeFromStateMap = (items) => {
+            return items.map(item => {
+                stateMap.delete(resolveKey(item));
+                return item;
+            });
+        }
 
         const log = (errors, level = config.logLevel) => {
             if (errors.length && (config.strict || config.debug)) {
@@ -107,8 +117,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 validate: get
             },
             adding: {
-                iterator(state, initialState, predicate) {
-                    return predicate(state, initialState);
+                iterator(initialState, predicate) {
+                    return predicate(getCurrentState(), initialState);
                 },
                 validate(item, context) {
                     if (has(item)) {
@@ -176,14 +186,16 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             if (typeof input === 'function') {
                 if (iterator) {
                     const { initialState } = internals.get(this)
-                    return iterator(this.state, initialState, input);
+                    return iterator(initialState, input);
                 } else {
-                    return this.state.items.reduce((acc, item, index) => {
-                        if (input(item, index) === true) {
-                            return [...acc, item];
+                    const acc = [];
+                    for (let [key, item] of stateMap) {
+                        if (item.filtered) continue;
+                        if (input(item) === true) {
+                            acc.push(item.value);
                         }
-                        return acc;
-                    }, []);
+                    }
+                    return acc;
                 }
             } else if (Array.isArray(input)) {
                 return input;
@@ -238,23 +250,41 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             };
         }
 
+        function getCurrentState () {
+            return Array.from<Slc.ItemState<T>>(stateMap.values()).reduce((state, item) => {
+                if (item.filtered) return state;
+                if (item.selected) {
+                    state.selected.push(item.value);
+                }
+                state.items.push(item.value);
+                return state;
+            }, { items: [], selected: []});
+        }
+
+        function setCurrentState () {
+            const newState = getCurrentState();
+            currentState.items = newState.items;
+            currentState.selected = newState.selected;
+        }
+
         internals.set(this, {
             log,
             config,
-            itemsMap,
             resolverFor,
             subscribers,
-            selectionsMap,
             resolveInput,
             resolveKey,
             resolveItemsWith, 
             createError,
             createStateObject,
+            currentState,
+            setCurrentState,
+            stateMap,
             has,
             get,
+            addToStateMap,
+            removeFromStateMap,
             isSelected,
-            addTo,
-            removeFrom,
             dispatch
         });
 
@@ -266,11 +296,11 @@ class Selector <T,P> implements Slc.Selector<T,P> {
 
     revert (change : Slc.Change<T>) {
         return this.applyChange({
-                [ADD]: change[REMOVE],
-                [REMOVE]: change[ADD],
-                [SELECT]: change[DESELECT],
-                [DESELECT]: change[SELECT],
-            });
+            [ADD]: change[REMOVE],
+            [REMOVE]: change[ADD],
+            [SELECT]: change[DESELECT],
+            [DESELECT]: change[SELECT],
+        });
     }
 
     subscribe (
@@ -301,14 +331,6 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return this.applyChange({
             [DESELECT]: input
         });
-    }
-
-    selectAll () {
-        return this.deselectAll().select(this.state.items);
-    }
-
-    deselectAll () {
-        return this.deselect(this.state.selected);
     }
 
     invert () {
@@ -342,45 +364,71 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         });
     }
 
-    removeAll () {
-        return this.remove(this.state.items);
-    }
-
     reset () {
         const { initialState } = internals.get(this);
         return this.setState(initialState);
     }
 
+    filter (predicate: Slc.Predicate<T>) {
+        const { stateMap } = internals.get(this);
+
+        const change = {
+            [ADD]: [],
+            [REMOVE]: []
+        }
+
+        stateMap.forEach((item, index) => {
+            const input = { value: item.value, selected: item.selected };
+            const result = predicate(input);
+            if (result === true) {
+                item.filtered = false;
+                change[ADD].push(item.value);
+            }
+            if (result === false) {
+                item.filtered = true;
+                change[REMOVE].push(item.value);
+            }
+        });
+
+        return this.applyChange(change);
+    }
+
+
+    some (predicate : Slc.Predicate<T>) {
+        const { stateMap } = internals.get(this);
+        let someTrue = false;
+        for (let [key, item] of stateMap) {
+            if (item.filtered) continue;
+            const input = { value: item.value, selected: item.selected };
+            if (predicate(input) === true) {
+                someTrue = true;
+                break;
+            }
+        }
+
+        return someTrue;
+    }
+
+    every (predicate : Slc.Predicate<T>) {
+        const { stateMap } = internals.get(this);
+        let allTrue = true;
+        for (let [key, item] of stateMap) {
+            if (item.filtered) continue;
+            const input = { value: item.value, selected: item.selected };
+            if (predicate(input) !== true) {
+                allTrue = false;
+                break;
+            }
+        }
+        return allTrue;
+    }
+
     isSelected (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
         const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections) return false;
-
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
 
         log(errors, 'warn');
         return hits.every(isSelected);
-    }
-
-    isSomeSelected (input : T[] | P[] | Slc.Predicate<T>) : boolean {
-        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections) return false;
-        
-        const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSomeSelected');
-
-        log(errors, 'warn');
-        return hits.some(isSelected);
-    }
-
-    isOnlySelected (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
-        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections) return false;
-        
-        const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isOnlySelected');
-
-        log(errors, 'warn');
-        return !!hits.length && hits.every(isSelected) 
-                && this.state.selected.length === hits.length;
-               
     }
 
     has (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
@@ -394,7 +442,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input);
         return !!hits.length;
     }
-
+    
     swap (input : T | P | Slc.Predicate<T>, newItem : T) {
         const { 
             config,
@@ -404,13 +452,12 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             resolverFor,
             resolveKey,
             isSelected,
-            itemsMap,
-            dispatch,
-            selectionsMap } = internals.get(this);
-
+            setCurrentState,
+            stateMap,
+            dispatch } = internals.get(this);
 
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'swapping');
-        
+
         let hasErrors = false;
         if (errors.length) {
             hasErrors = true;
@@ -424,11 +471,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         let hasChanges = false;
         if (!hasErrors) {
             hasChanges = true;
-            itemsMap.set(key, newItem);
-            if (wasSelected) {
-                selectionsMap.set(key, newItem);
-            }
+            stateMap.set(key, {
+                value: newItem,
+                selected: wasSelected
+            });
         }
+
+        setCurrentState();
 
         dispatch({ hasChanges, hasErrors }, {
             [ADD]: [newItem],
@@ -442,12 +491,11 @@ class Selector <T,P> implements Slc.Selector<T,P> {
     }
 
     setState (newState : Slc.StateLike<T,P> | T[]) {
-        const { state } = this;
-        const { createStateObject } = internals.get(this);
+        const { createStateObject, currentState } = internals.get(this);
         const { items, selected } = createStateObject(newState)
-
+       
         return this.applyChange({
-            [REMOVE]: state.items,
+            [REMOVE]: currentState.items,
             [ADD]: items,
             [SELECT]: selected
         });
@@ -456,14 +504,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
     applyChange (changes : Slc.ChangeLike<T, P>) {
         const {
             log,
+            addToStateMap,
+            removeFromStateMap,
             config,
-            addTo,
-            removeFrom,
             dispatch,
             resolveItemsWith,
             resolverFor,
-            itemsMap,
-            selectionsMap,
+            setCurrentState
         } = internals.get(this);
 
         const orderOfActions = [REMOVE, ADD, DESELECT, SELECT];
@@ -473,13 +520,46 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 return acc;
             }
             const actions = {
-                [DESELECT]: () => {
+                [REMOVE]: () => {
+                    const { hits, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVE], REMOVE);
+          
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+
+                    const change = !(acc.hasErrors && config.strict) ? removeFromStateMap(hits) : []; 
+                    acc.hasChanges = acc.hasChanges || !!change.length;
+                
+                    change.forEach((item) => {
+                        if (this.isSelected(item)) {
+                            acc.changes[DESELECT].push(item);
+                        };
+                    });
+
+                    acc.changes[REMOVE] = change;
+                },
+
+                [ADD]: () => {
+                    const { hits, errors } = resolveItemsWith(resolverFor.adding, changes[ADD], ADD);
+
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits) : []; 
+                                       
+                    acc.hasChanges = acc.hasChanges || !!change.length;
+
+                    acc.changes[ADD] = change;
+                 },
+
+                 [DESELECT]: () => {
                     const { hits, errors } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT); 
                     log(errors);
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
                     
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : []; 
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false }) : []; 
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[DESELECT].push(...change);
@@ -490,42 +570,12 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                     log(errors);
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
-
-                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : []; 
+                    
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: true }) : []; 
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[SELECT] = change;
                  },
-                 
-                [REMOVE]: () => {
-                    const { hits, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVE], REMOVE);
-                    log(errors);
-                    acc.errors.push(...errors);
-                    acc.hasErrors = acc.hasErrors || !!errors.length;
-
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(itemsMap, hits) : []; 
-                    acc.hasChanges = acc.hasChanges || !!change.length;
-
-                    change.forEach((item) => {
-                        if (this.isSelected(item)) {
-                            acc.changes[DESELECT].push(...removeFrom(selectionsMap, [item]));
-                        };
-                    });
-
-                    acc.changes[REMOVE] = change;
-                },
-
-                [ADD]: () => {
-                    const { hits, errors } = resolveItemsWith(resolverFor.adding, changes[ADD], ADD);
-                    log(errors);
-                    acc.errors.push(...errors);
-                    acc.hasErrors = acc.hasErrors || !!errors.length;
-
-                    const change = !(acc.hasErrors && config.strict) ? addTo(itemsMap, hits) : []; 
-                    acc.hasChanges = acc.hasChanges || !!change.length;
-
-                    acc.changes[ADD] = change;
-                 }
             }
 
             actions[action]();
@@ -543,6 +593,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             errors: []
         });
 
+        setCurrentState();
+
         const { hasChanges, hasErrors } = resolvedChanges;
         dispatch({ hasChanges, hasErrors }, resolvedChanges.changes, resolvedChanges.errors);
         
@@ -550,26 +602,11 @@ class Selector <T,P> implements Slc.Selector<T,P> {
     }
 
     get state () : Slc.State<T> {
-        const { selectionsMap, itemsMap } = internals.get(this);
+        const { currentState } = internals.get(this);
         return {
-            items: Array.from<T>(itemsMap.values()),
-            selected: Array.from<T>(selectionsMap.values())
+            items: currentState.items.slice(0),
+            selected: currentState.selected.slice(0)
         }
-    }
-
-    get hasSelections () : boolean {
-        const { selectionsMap } = internals.get(this);
-        return !!selectionsMap.size;
-    }
-
-    get hasItems () : boolean {
-        const { itemsMap } = internals.get(this);
-        return !!itemsMap.size;
-    }
-
-    get isAllSelected () : boolean {
-        const { itemsMap, selectionsMap } = internals.get(this);
-        return itemsMap.size === selectionsMap.size;
     }
 
     get isValid() : boolean {

@@ -128,15 +128,6 @@ declare namespace Slc {
         select(input: Predicate<T>) : Selector<T,P>;
 
         /**
-         * Select all items
-         * 
-         * @returns {Selector<T,P>} 
-         * 
-         * @memberof Selector
-         */
-        selectAll() : Selector<T,P>;
-
-        /**
          * Remove a single item
          * 
          * @param {T} input 
@@ -189,15 +180,6 @@ declare namespace Slc {
         remove(input: Predicate<T>) : Selector<T,P>;
 
         /**
-         * Remove all items (will deselect all items as well)
-         * 
-         * @returns {Selector<T,P>} 
-         * 
-         * @memberof Selector
-         */
-        removeAll() : Selector<T,P>;
-
-        /**
          * Deselect a single item
          * 
          * @param {T} input 
@@ -248,15 +230,6 @@ declare namespace Slc {
          * @memberof Selector
          */
         deselect(input: Predicate<T>) : Selector<T,P>;
-
-         /**
-         * Deselect all items
-         * 
-         * @returns {Selector<T,P>} 
-         * 
-         * @memberof Selector
-         */
-        deselectAll() : Selector<T,P>;
 
         /**
          * Toggle the state of a single item
@@ -341,6 +314,16 @@ declare namespace Slc {
         add(input: Iterator<T>) : Selector<T,P>;
 
         /**
+         * Filter current state
+         * 
+         * @param {Predicate<T>} predicate 
+         * @returns {Selector<T,P>} 
+         * 
+         * @memberof Selector
+         */
+        filter(predicate: Predicate<T>) : Selector<T,P>;
+
+        /**
          * Swap an existing item for a new item
          * 
          * @param {T} input 
@@ -383,6 +366,26 @@ declare namespace Slc {
          * @memberof Selector
          */
         subscribe (observer : Observer<T,P>, errorObserver? : ErrorObserver<T,P>) : Unsubscriber;
+
+        /**
+         * Check if some items of current state meet specified condition(s)
+         * 
+         * @param {Predicate<T>} predicate 
+         * @returns {boolean} 
+         * 
+         * @memberof Selector
+         */
+        some (predicate : Predicate<T>) : boolean;
+
+        /**
+         * Check if all items of current state meet specified conditions(s)
+         * 
+         * @param {Predicate<T>} predicate 
+         * @returns {boolean} 
+         * 
+         * @memberof Selector
+         */
+        every (predicate : Predicate<T>) : boolean;
 
         /**
          * Check existence of a single item
@@ -437,37 +440,6 @@ declare namespace Slc {
         has (input : Predicate<T>) : boolean;
 
         /**
-         * Check if some items exist
-         * 
-         * @param {T[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        hasSome (input : T[]) : boolean;
-
-        /**
-         * Check if some items exist based on properties
-         * (track-by mode only)
-         * 
-         * @param {P[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        hasSome (input : P[]) : boolean;
-
-        /**
-         * Check if some items exist based on return value of predicate
-         * 
-         * @param {Predicate} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        hasSome (input : Predicate<T>) : boolean;
-
-        /**
          * Check if item is selected
          * 
          * @param {T} input 
@@ -520,105 +492,6 @@ declare namespace Slc {
         isSelected (input: Predicate<T>) : boolean;
 
         /**
-         * Check if item is the only selected
-         * 
-         * @param {T} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isOnlySelected (input: T) : boolean;
-        
-        /**
-         * Check if items in array are the only selected
-         * 
-         * @param {T[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isOnlySelected (input: T[]) : boolean;
-
-        /**
-         * Check if a single item is the only selected based on property
-         * (track-by mode only)
-         * 
-         * @param {P} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isOnlySelected (input: P) : boolean;
-
-        /**
-         * Check if items in array are the only selected based on properties
-         * (track-by mode only)
-         * 
-         * @param {P[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isOnlySelected (input: P[]) : boolean;
-
-        /**
-         * Check if items(s) are the only selected based on return value of predicate
-         * 
-         * @param {Predicate} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isOnlySelected (input: Predicate<T>) : boolean;
-        
-        /**
-         * Check if some items in array are selected
-         * 
-         * @param {T[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isSomeSelected (input: T[]) : boolean;
-
-        /**
-         * Check if some items in array are selected based on properties
-         * (track-by mode only)
-         * 
-         * @param {P[]} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isSomeSelected (input: P[]) : boolean;
-
-         /**
-         * Check if some items are selected based on return value of predicate
-         * 
-         * @param {Predicate} input 
-         * @returns {boolean} 
-         * 
-         * @memberof Selector
-         */
-        isSomeSelected (input: Predicate<T>) : boolean;
-
-         /**
-          * True if all items are selected
-          * 
-          * @type {boolean}
-          * @memberof Selector
-          */
-        isAllSelected: boolean;
-
-        /**
-          * True if some items are selected
-          * 
-          * @type {boolean}
-          * @memberof Selector
-          */
-        hasSelections: boolean;
-
-        /**
           * True if instance are valid based on provided validators
           * 
           * @type {boolean}
@@ -667,6 +540,12 @@ declare namespace Slc {
         selected: T[] | P[] | Predicate<T>;
     }
 
+    interface ItemState<T> {
+        value: T;
+        selected: boolean;
+        filtered: boolean;
+    }
+
     interface Change<T> {
         readonly select : T[];
         readonly deselect : T[];
@@ -690,7 +569,7 @@ declare namespace Slc {
     }
 
     interface Predicate<T> {
-        (item: T, index: number): boolean;
+        (input: { value: T, selected: boolean }) : boolean;
     }
 
     interface Iterator<T> {

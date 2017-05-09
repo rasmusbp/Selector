@@ -62,7 +62,7 @@ describe('When setting state', () => {
 
             selector.setState({
                 items: (state, initialState) => initialState.items.map(item => item * 10),
-                selected: item => item > 20
+                selected: item => item.value > 20
             });
             const state = selector.state;
             const expectedState = {

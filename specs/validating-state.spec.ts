@@ -35,7 +35,7 @@ describe('When validating items', () => {
 
         it('it will accept a function as predicate to determine result', () => {
             const selector = createSelector([1,2,3,4,5,6]);
-            const has = selector.has(item => item > 7);
+            const has = selector.has(item => item.value > 7);
             expect(has).to.be.false;
         });
     });
@@ -63,61 +63,6 @@ describe('When validating items', () => {
         });
     });
 
-    context('with .hasSome(...)', () => {
-        it('it will return true if provided item exists on state object', () => {
-            const selector = createSelector([1,2,3]);
-            const has = selector.hasSome([2]);
-            expect(has).to.be.true;
-        });
-
-        it('it will return false if provided item does not exists on state object', () => {
-            const selector = createSelector([1,2,3]);
-            const has = selector.hasSome([5]);
-            expect(has).to.be.false;
-        });
-
-        it('it will return true if all items of provided array exist on state object', () => {
-            const selector = createSelector([1,2,3]);
-            const has = selector.hasSome([1,3]);
-            expect(has).to.be.true;
-        });
-
-        it('it will return true if some items of provided array exist on state object', () => {
-            const selector = createSelector([1,2,3]);
-            const has = selector.hasSome([1,2,4,5]);
-            expect(has).to.be.true;
-        });
-
-        it('it will accept a function as predicate to determine result', () => {
-            const selector = createSelector([1,2,3,4,5,6]);
-            const has = selector.hasSome(item => item > 4);
-            expect(has).to.be.true;
-        });
-    });
-
-    context('with .hasSome(...) in track by mode', () => {
-        let selector;
-        beforeEach(() => {
-            const items = [
-                { id: '1', name: 'Luke' },
-                { id: '2', name: 'Han' },
-                { id: '3', name: 'Leia' },
-                { id: '4', name: 'Ben' },
-            ];
-            selector = createSelector(items, { trackBy: 'id' });
-        });
-
-        it('it will accept a single property to determine result', () => {
-            const has = selector.hasSome('1');
-            expect(has).to.be.true;
-        });
-
-        it('it will accept an array of properties to determine result', () => {
-            const has = selector.hasSome(['1','2','5']);
-            expect(has).to.be.true;
-        });
-    });
-
 });
 
 describe('When validating selected', () => {
@@ -125,42 +70,6 @@ describe('When validating selected', () => {
 
     beforeEach(() => warn = sinon.stub(console, 'warn'));
     afterEach(() => warn.restore());
-
-    context('with .hasSelections in default mode', () => {
-        it('it will return true if state has selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2]
-            });
-            expect(selector.hasSelections).to.be.true;
-        });
-
-        it('it will return false if state has no selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: []
-            });
-            expect(selector.hasSelections).to.be.false;
-        });
-    });
-
-    context('with .isAllSelected in default mode', () => {
-        it('it will return true if all items are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [1,2,3]
-            });
-            expect(selector.isAllSelected).to.be.true;
-        });
-
-        it('it will return false if not all items are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2,3]
-            });
-            expect(selector.isAllSelected).to.be.false;
-        });
-    });
 
     context('with .isSelected(...) in default mode', () => {
         it('it will return true if provided item is selected', () => {
@@ -195,7 +104,7 @@ describe('When validating selected', () => {
                 items: [1,2,3,4,5,6],
                 selected: [1,2,3]
             });
-            const isSelected = selector.isSelected(item => item < 4);
+            const isSelected = selector.isSelected(item => item.value < 4);
             expect(isSelected).to.be.true;
         });
 
@@ -259,203 +168,6 @@ describe('When validating selected', () => {
         });
     });
 
-    context('with .isSomeSelected(...) in default mode', () => {
-        it('it will return true if provided item is selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2]
-            });
-            const isSomeSelected = selector.isSomeSelected([2]);
-            expect(isSomeSelected).to.be.true;
-        });
-
-        it('it will return false if provided item is not selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            });
-            const isSomeSelected = selector.isSomeSelected([2]);
-            expect(isSomeSelected).to.be.false;
-        });
-
-        it('it will return true if some items of provided array are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2]
-            });
-            const isSomeSelected = selector.isSomeSelected([2,3]);
-            expect(isSomeSelected).to.be.true;
-        });
-
-        it('it will accept a function as predicate to determine result', () => {
-            const selector = createSelector({
-                items: [1,2,3,4,5,6],
-                selected: [1,2,3]
-            });
-            const isSomeSelected = selector.isSomeSelected(item => item < 2);
-            expect(isSomeSelected).to.be.true;
-        });
-
-        it('it will return false if non of the items of provided array are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [1]
-            });
-            const isSomeSelected = selector.isSomeSelected([2,3]);
-            expect(isSomeSelected).to.be.false;
-        });
-    });
-
-    context('with .isSomeSelected(...) in track by mode', () => {
-        let selector;
-        beforeEach(() => {
-            const items = [
-                { id: '1', name: 'Luke' },
-                { id: '2', name: 'Han' },
-                { id: '3', name: 'Leia' },
-                { id: '4', name: 'Ben' },
-            ];
-            selector = createSelector<{ id: string, name: string }>({
-                items,
-                selected: ['1','2','3']
-            }, { trackBy: 'id' });
-        });
-
-        it('will accept a single property to determine result', () => {
-            const isSomeSelected = selector.isSomeSelected('1');
-            expect(isSomeSelected).to.be.true;
-        });
-
-        it('will accept an array of properties to determine result', () => {
-            const isSomeSelected = selector.isSomeSelected(['1','2']);
-            expect(isSomeSelected).to.be.true;
-        });
-    });
-
-    context('with .isSomeSelected(...) in debug mode', () => {
-        it('it warns if provided item is not present in items', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            }, { debug: true });
-            selector.isSomeSelected([4]);
-            const warning = warn.lastCall.args[0];
-            expect(warning).to.include('isSomeSelected --> item does not exist');
-        });
-    });
-
-    context('with .isSomeSelected(...) in strict mode', () => {
-        it('it warns if provided item is not present in items', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            }, { strict: true });
-            selector.isSomeSelected([4]);
-            const warning = warn.lastCall.args[0];
-            expect(warning).to.include('isSomeSelected --> item does not exist');
-        });
-    });
-
-    context('with .isOnlySelected(...) in default mode', () => {
-        it('it will return true if provided item is selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2]
-            });
-            const isOnlySelected = selector.isOnlySelected(2);
-            expect(isOnlySelected).to.be.true;
-        });
-
-        it('it will return false if provided item is not selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            });
-            const isOnlySelected = selector.isOnlySelected(2);
-            expect(isOnlySelected).to.be.false;
-        });
-
-        it('it will return true if only items of provided array are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [2,3]
-            });
-            const isOnlySelected = selector.isOnlySelected([2,3]);
-            expect(isOnlySelected).to.be.true;
-        });
-
-         it('it will accept a function as predicate to determine result', () => {
-            const selector = createSelector({
-                items: [1,2,3,4,5,6],
-                selected: [1]
-            });
-            const isOnlySelected = selector.isOnlySelected(item => item === 1);
-            expect(isOnlySelected).to.be.true;
-        });
-
-        it('it will return false if more items of provided array are selected', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [1,2,3]
-            });
-            const isOnlySelected = selector.isOnlySelected([2,3]);
-            expect(isOnlySelected).to.be.false;
-        });
-
-    });
-
-    context('with .isOnlySelected(...) in track by mode', () => {
-        let selector;
-        beforeEach(() => {
-            const items = [
-                { id: '1', name: 'Luke' },
-                { id: '2', name: 'Han' },
-                { id: '3', name: 'Leia' },
-                { id: '4', name: 'Ben' },
-            ];
-            selector = createSelector<{ id: string, name: string }>({
-                items,
-                selected: ['1','2']
-            }, { trackBy: 'id' });
-        });
-
-        it('will accept a single property to determine result', () => {
-            const isOnlySelected = selector.isOnlySelected('1');
-            expect(isOnlySelected).to.be.false;
-        });
-
-        it('will accept an array of properties to determine result', () => {
-            const isOnlySelected = selector.isOnlySelected(['1','2']);
-            expect(isOnlySelected).to.be.true;
-        });
-    });
-
-    context('with .isOnlySelected(...) in debug mode', () => {
-        it('it warns if provided item is not present in items', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            }, { debug: true });
-            selector.isOnlySelected(4);
-
-            const warning = warn.args[0][0];
-            expect(warning).to.include('isOnlySelected --> item does not exist');
-        });
-    });
-
-    context('with .isOnlySelected(...) in strict mode', () => {
-        it('it warns if provided item is not present in items', () => {
-            const selector = createSelector({
-                items: [1,2,3],
-                selected: [3]
-            }, { strict: true });
-            selector.isOnlySelected(4);
-
-            const warning = warn.args[0][0];
-            expect(warning).to.include('isOnlySelected --> item does not exist');
-        });
-    });
-
 });
 
 describe('When validating state', () => {
@@ -468,21 +180,19 @@ describe('When validating state', () => {
         it('it should yield the validity based on validators provided at construction', () => {
             const selector = createSelector([1,2,3,4], {
                 validators: [
-                    (state, selector) => selector.hasItems,
-                    (state, selector) => selector.isOnlySelected(1),
-                    (state, selector) => selector.hasSelections
+                    (state, selector) => selector.has([1,2,3,4]),
+                    (state, selector) => selector.some(item => {
+                        return item.value === 1 && !!item.selected;
+                    })
                 ]
             });
-
+   
             expect(selector.isValid).to.be.false;
 
             selector.select(1);
             expect(selector.isValid).to.be.true;
 
-            selector.select(2);
-            expect(selector.isValid).to.be.false;
-
-            selector.removeAll();
+            selector.remove([1,2,3,4]);
             expect(selector.isValid).to.be.false;
 
         });

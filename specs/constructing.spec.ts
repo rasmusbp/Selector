@@ -7,19 +7,17 @@ describe('Given constructing a Selector instance', () => {
         const selector = createSelector();
         const methods = [
             'add',
-            'applyChange',
-            'deselect',
-            'deselectAll',
-            'has',
-            'hasSome',
-            'invert',
-            'isOnlySelected',
-            'isSelected',
-            'remove',
-            'removeAll',
-            'reset',
             'select',
-            'selectAll',
+            'remove',
+            'deselect',
+            'applyChange',
+            'invert',
+            'filter',
+            'some',
+            'every',
+            'has',
+            'isSelected',
+            'reset',
             'setState',
             'subscribe',
             'swap',
@@ -32,9 +30,6 @@ describe('Given constructing a Selector instance', () => {
     it('it exposes expected getters', () => {
         const selector = createSelector();
         const getters = [
-            'hasItems',
-            'hasSelections',
-            'isAllSelected',
             'isValid',
             'state'
         ].forEach(getter => {
@@ -88,7 +83,7 @@ describe('Given constructing a Selector instance', () => {
         it('it can be constructed with functions to determine state', () => {
             const selector = createSelector({
                 items: () => [1,2,3,4],
-                selected: item => item > 2
+                selected: item => item.value > 2
             });
 
             const state = selector.state;

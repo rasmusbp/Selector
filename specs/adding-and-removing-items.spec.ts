@@ -144,7 +144,7 @@ describe('When removing items', () => {
 
         it('it can remove items using a predicate function', () => {
             const selector = createSelector([1,2,3]);
-            selector.remove(item => item > 1);
+            selector.remove(item => item.value > 1);
             const state = selector.state;
             const expectedState = {
                 items: [1],
