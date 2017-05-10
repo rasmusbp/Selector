@@ -461,7 +461,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
 
         log(errors, 'warn');
-        return hits.every(isSelected);
+        return !!hits.length && hits.every(isSelected);
     }
 
     has (input : T | T[] | P | P[] | Slc.Predicate<T,P>) : boolean {
@@ -470,12 +470,6 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return !!hits.length && hits.every(has);
     }
 
-    hasSome (input : T[] | P[] | Slc.Predicate<T,P>) : boolean {
-        const { resolveItemsWith, resolverFor } = internals.get(this);
-        const { hits, errors } = resolveItemsWith(resolverFor.getting, input);
-        return !!hits.length;
-    }
-    
     swap (input : T | P | Slc.Predicate<T,P>, newItem : T) {
         const { 
             config,
@@ -559,15 +553,17 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                     log(errors);
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
+                    
+                    if (!(acc.hasErrors && config.strict)) {
+                        hits.forEach((item) => {
+                            if (this.isSelected(item)) {
+                                acc.changes[DESELECT].push(item);
+                            };
+                        });
+                    }
 
                     const change = !(acc.hasErrors && config.strict) ? removeFromStateMap(hits) : []; 
                     acc.hasChanges = acc.hasChanges || !!change.length;
-                
-                    change.forEach((item) => {
-                        if (this.isSelected(item)) {
-                            acc.changes[DESELECT].push(item);
-                        };
-                    });
 
                     acc.changes[REMOVE] = change;
                 },
