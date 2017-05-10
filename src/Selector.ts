@@ -136,8 +136,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 validate: get
             },
             adding: {
-                iterator(initialState, predicate) {
-                    return predicate(getCurrentState(), initialState);
+                iterator(state, initialState, predicate) {
+                    return predicate(state, initialState);
                 },
                 validate(item, context) {
                     if (has(item)) {
@@ -205,7 +205,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             if (typeof input === 'function') {
                 if (iterator) {
                     const { initialState } = internals.get(this)
-                    return iterator(initialState, input);
+                    return iterator(this.state, initialState, input);
                 } else {
                     const acc = [];
                     for (let [key, item] of stateMap) {
