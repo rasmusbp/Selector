@@ -83,6 +83,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         }
 
         const addToStateMap = (items, state) => {
+            const { trackBy } = config;
             return items.reduce((hits, item) => {
                 const key = resolveKey(item);
                 const current = stateMap.get(key); 
@@ -90,7 +91,14 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                     Object.assign(current, state);
                     return [...hits, current.value];
                 } else {
-                    stateMap.set(key, { value: item, ...state });
+                    const update = {
+                        value: item, 
+                        ...state 
+                    };
+                    if (trackBy) {
+                        update.key = key;
+                    }
+                    stateMap.set(key, update);
                     return [...hits, item];
                 }
             }, []);
@@ -101,6 +109,17 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 stateMap.delete(resolveKey(item));
                 return item;
             });
+        }
+
+        const getPredicateArgs = (item) => {
+            const args : any = {
+                value: item.value,
+                selected: item.selected
+            }
+            if (item.key) {
+                args.key = item.key;
+            }
+            return args;
         }
 
         const log = (errors, level = config.logLevel) => {
@@ -261,7 +280,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             }, { items: [], selected: []});
         }
 
-        function setCurrentState () {
+        function updateCurrentState () {
             const newState = getCurrentState();
             currentState.items = newState.items;
             currentState.selected = newState.selected;
@@ -278,7 +297,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             createError,
             createStateObject,
             currentState,
-            setCurrentState,
+            updateCurrentState,
+            getPredicateArgs,
             stateMap,
             has,
             get,
@@ -321,13 +341,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         };
     }
 
-    select (input : T | T[] | P | P[] | Slc.Predicate<T>) {
+    select (input : T | T[] | P | P[] | Slc.Predicate<T,P>) {
         return this.applyChange({
             [SELECT]: input
         });
     }
 
-    deselect (input : T | T[] | P | P[] | Slc.Predicate<T>) {
+    deselect (input : T | T[] | P | P[] | Slc.Predicate<T,P>) {
         return this.applyChange({
             [DESELECT]: input
         });
@@ -337,7 +357,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return this.toggle(this.state.items);
     }
     
-    toggle (input : T | T[] | P | P[] | Slc.Predicate<T>) {
+    toggle (input : T | T[] | P | P[] | Slc.Predicate<T,P>) {
         const { resolveInput, isSelected } = internals.get(this);
         const hits = resolveInput(input);
         const changes = hits.reduce((acc, item) => {
@@ -358,7 +378,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         });
     }
     
-    remove (input : T | T[] | P | P[] | Slc.Predicate<T>) {
+    remove (input : T | T[] | P | P[] | Slc.Predicate<T,P>) {
         return this.applyChange({
             [REMOVE]: input
         });
@@ -369,38 +389,51 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return this.setState(initialState);
     }
 
-    filter (predicate: Slc.Predicate<T>) {
-        const { stateMap } = internals.get(this);
+    filter (predicate: Slc.Predicate<T,P>) {
+        const { stateMap, dispatch, updateCurrentState, getPredicateArgs } = internals.get(this);
 
-        const change = {
+        let hasChanges = false;
+        const changes = {
             [ADD]: [],
-            [REMOVE]: []
+            [REMOVE]: [],
+            [SELECT]: [],
+            [DESELECT]: []
         }
 
         stateMap.forEach((item, index) => {
-            const input = { value: item.value, selected: item.selected };
-            const result = predicate(input);
-            if (result === true) {
-                item.filtered = false;
-                change[ADD].push(item.value);
-            }
-            if (result === false) {
-                item.filtered = true;
-                change[REMOVE].push(item.value);
-            }
-        });
+            const result = predicate(getPredicateArgs(item));
 
-        return this.applyChange(change);
+            if (result === true && item.filtered) {
+                hasChanges = true;
+                item.filtered = false;
+                changes[ADD].push(item.value);
+                if (item.selected) {
+                    changes[SELECT].push(item.value);
+                }
+            } else if (result === false && !item.filtered) {
+                hasChanges = true;
+                item.filtered = true;
+                changes[REMOVE].push(item.value);
+                if (item.selected) {
+                    changes[DESELECT].push(item.value);
+                }
+            }
+
+        });
+        
+        updateCurrentState();
+        dispatch({ hasChanges, hasErrors: false }, changes, []);
+        
+        return this;
     }
 
 
-    some (predicate : Slc.Predicate<T>) {
-        const { stateMap } = internals.get(this);
+    some (predicate : Slc.Predicate<T,P>) {
+        const { stateMap, getPredicateArgs } = internals.get(this);
         let someTrue = false;
         for (let [key, item] of stateMap) {
             if (item.filtered) continue;
-            const input = { value: item.value, selected: item.selected };
-            if (predicate(input) === true) {
+            if (predicate(getPredicateArgs(item)) === true) {
                 someTrue = true;
                 break;
             }
@@ -409,13 +442,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return someTrue;
     }
 
-    every (predicate : Slc.Predicate<T>) {
-        const { stateMap } = internals.get(this);
+    every (predicate : Slc.Predicate<T,P>) {
+        const { stateMap, getPredicateArgs } = internals.get(this);
         let allTrue = true;
         for (let [key, item] of stateMap) {
             if (item.filtered) continue;
             const input = { value: item.value, selected: item.selected };
-            if (predicate(input) !== true) {
+            if (predicate(getPredicateArgs(item)) !== true) {
                 allTrue = false;
                 break;
             }
@@ -423,7 +456,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return allTrue;
     }
 
-    isSelected (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
+    isSelected (input : T | T[] | P | P[] | Slc.Predicate<T,P>) : boolean {
         const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
 
@@ -431,19 +464,19 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return hits.every(isSelected);
     }
 
-    has (input : T | T[] | P | P[] | Slc.Predicate<T>) : boolean {
+    has (input : T | T[] | P | P[] | Slc.Predicate<T,P>) : boolean {
         const { resolveItemsWith, resolverFor, has } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.all, input);
         return !!hits.length && hits.every(has);
     }
 
-    hasSome (input : T[] | P[] | Slc.Predicate<T>) : boolean {
+    hasSome (input : T[] | P[] | Slc.Predicate<T,P>) : boolean {
         const { resolveItemsWith, resolverFor } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input);
         return !!hits.length;
     }
     
-    swap (input : T | P | Slc.Predicate<T>, newItem : T) {
+    swap (input : T | P | Slc.Predicate<T,P>, newItem : T) {
         const { 
             config,
             log,
@@ -452,7 +485,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             resolverFor,
             resolveKey,
             isSelected,
-            setCurrentState,
+            updateCurrentState,
             stateMap,
             dispatch } = internals.get(this);
 
@@ -477,7 +510,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             });
         }
 
-        setCurrentState();
+        updateCurrentState();
 
         dispatch({ hasChanges, hasErrors }, {
             [ADD]: [newItem],
@@ -510,7 +543,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             dispatch,
             resolveItemsWith,
             resolverFor,
-            setCurrentState
+            updateCurrentState
         } = internals.get(this);
 
         const orderOfActions = [REMOVE, ADD, DESELECT, SELECT];
@@ -546,7 +579,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
 
-                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits) : []; 
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false, filtered: false }) : []; 
                                        
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
@@ -593,7 +626,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             errors: []
         });
 
-        setCurrentState();
+        updateCurrentState();
 
         const { hasChanges, hasErrors } = resolvedChanges;
         dispatch({ hasChanges, hasErrors }, resolvedChanges.changes, resolvedChanges.errors);

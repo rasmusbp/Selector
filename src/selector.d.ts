@@ -125,7 +125,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        select(input: Predicate<T>) : Selector<T,P>;
+        select(input: Predicate<T,P>) : Selector<T,P>;
 
         /**
          * Remove a single item
@@ -177,7 +177,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        remove(input: Predicate<T>) : Selector<T,P>;
+        remove(input: Predicate<T,P>) : Selector<T,P>;
 
         /**
          * Deselect a single item
@@ -229,7 +229,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        deselect(input: Predicate<T>) : Selector<T,P>;
+        deselect(input: Predicate<T,P>) : Selector<T,P>;
 
         /**
          * Toggle the state of a single item
@@ -276,12 +276,12 @@ declare namespace Slc {
         /**
          * Toggle the state of item(s) based on the return value of predicate
          * 
-         * @param {Predicate<T>} input 
+         * @param {Predicate<T,P>} input 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        toggle (input : Predicate<T>) : Selector<T,P>
+        toggle (input : Predicate<T,P>) : Selector<T,P>
 
         /**
          * Add a single item
@@ -316,12 +316,12 @@ declare namespace Slc {
         /**
          * Filter current state
          * 
-         * @param {Predicate<T>} predicate 
+         * @param {Predicate<T,P>} predicate 
          * @returns {Selector<T,P>} 
          * 
          * @memberof Selector
          */
-        filter(predicate: Predicate<T>) : Selector<T,P>;
+        filter(predicate: Predicate<T,P>) : Selector<T,P>;
 
         /**
          * Swap an existing item for a new item
@@ -370,22 +370,22 @@ declare namespace Slc {
         /**
          * Check if some items of current state meet specified condition(s)
          * 
-         * @param {Predicate<T>} predicate 
+         * @param {Predicate<T,P>} predicate 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        some (predicate : Predicate<T>) : boolean;
+        some (predicate : Predicate<T,P>) : boolean;
 
         /**
          * Check if all items of current state meet specified conditions(s)
          * 
-         * @param {Predicate<T>} predicate 
+         * @param {Predicate<T,P>} predicate 
          * @returns {boolean} 
          * 
          * @memberof Selector
          */
-        every (predicate : Predicate<T>) : boolean;
+        every (predicate : Predicate<T,P>) : boolean;
 
         /**
          * Check existence of a single item
@@ -437,7 +437,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        has (input : Predicate<T>) : boolean;
+        has (input : Predicate<T,P>) : boolean;
 
         /**
          * Check if item is selected
@@ -489,7 +489,7 @@ declare namespace Slc {
          * 
          * @memberof Selector
          */
-        isSelected (input: Predicate<T>) : boolean;
+        isSelected (input: Predicate<T,P>) : boolean;
 
         /**
           * True if instance are valid based on provided validators
@@ -537,7 +537,7 @@ declare namespace Slc {
 
     interface StateLike<T,P> {
         items: T[] | Iterator<T>;
-        selected: T[] | P[] | Predicate<T>;
+        selected: T[] | P[] | Predicate<T,P>;
     }
 
     interface ItemState<T> {
@@ -554,10 +554,10 @@ declare namespace Slc {
     }
 
     interface ChangeLike<T,P> {
-        select? : T[] | P[] | Predicate<T>;
-        deselect? : T[] | P[] | Predicate<T>;
+        select? : T[] | P[] | Predicate<T,P>;
+        deselect? : T[] | P[] | Predicate<T,P>;
         add? : T[] | Iterator<T>;
-        remove? : T[] | P[] | Predicate<T>;
+        remove? : T[] | P[] | Predicate<T,P>;
     }
 
     interface Observer<T,P> {
@@ -568,8 +568,8 @@ declare namespace Slc {
         (errors: StateError<T>[], state: State<T>, selector: Selector<T,P>): void;
     }
 
-    interface Predicate<T> {
-        (input: { value: T, selected: boolean }) : boolean;
+    interface Predicate<T,P> {
+        (input: { value: T, selected: boolean, key?: P }) : boolean;
     }
 
     interface Iterator<T> {

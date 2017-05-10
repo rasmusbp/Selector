@@ -6,8 +6,6 @@ const items = [
 
 const selector = createSelector(items);
 
-selector
-    .filter(item => item > 0);
-
-console.log(selector.state);
-
+selector.subscribe((changes, state) => {
+    console.log(changes, state)
+});

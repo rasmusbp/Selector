@@ -278,6 +278,100 @@ describe('When removing items', () => {
     });
 });
 
+describe('When filtering items', () => {
+    context('with .filter(...) in default mode', () => {
+        it('it returns the instance', () => {
+            const selector = createSelector();
+            const instance = selector.filter(() => true);
+            expect(instance).to.equal(selector);
+        });
+
+        it('it filter items based on boolean return value of predicate', () => {
+            const selector = createSelector([1,2,3,4,5,6]);
+            
+            selector.filter(item => item.value > 3);
+            const expectedState = {
+                items: [4,5,6],
+                selected: []
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it filter selections based on boolean return value of predicate', () => {
+            const selector = createSelector({
+                items: [1,2,3,4,5,6],
+                selected: [1,2,3,4]
+            });
+            
+            selector.filter(item => item.value > 3);
+            const expectedState = {
+                items: [4,5,6],
+                selected: [4]
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it restores the selection state when unfiltering items', () => {
+            const selector = createSelector({
+                items: [1,2,3,4,5,6],
+                selected: [1,2,3,4]
+            });
+           
+            selector
+                .filter(item => item.value > 3)
+                .filter(item => true); // <- unfilter all!
+
+            const expectedState = {
+                items: [1,2,3,4,5,6],
+                selected: [1,2,3,4]
+            }
+            expect(selector.state).to.deep.equal(expectedState);
+        });
+
+        it('it will provide the value and selected state to predicate function', () => {
+            const selector = createSelector([1,2,3,4,5,6]);
+            const filter : sinon.SinonSpy = sinon.stub().returns(true);
+
+            selector
+                .select(2)
+                .filter(filter);
+                
+            const randomCallArgs = {
+                value: 2,
+                selected: true,
+            }
+
+            expect(filter).to.have.been.calledWithExactly(randomCallArgs)
+        });
+    });
+
+    context('with .filter(...) in track-by mode', () => {
+        it('it will provide the value, selected state and track-by key to predicate function', () => {
+            const items = [
+                { id: '1', name: 'Luke' },
+                { id: '2', name: 'Han' },
+                { id: '3', name: 'Leia' },
+                { id: '4', name: 'Ben' },
+            ]; 
+            const selector = createSelector(items, { trackBy: 'id' });
+            const filter : sinon.SinonSpy = sinon.stub().returns(true);
+
+            selector
+                .select('2')
+                .filter(filter);
+
+            const randomCallArgs = {
+                value: { id: '2', name: 'Han' },
+                selected: true,
+                key: '2'
+            }
+
+            expect(filter).to.have.been.calledWithExactly(randomCallArgs)
+        });
+    });
+
+});
+
 describe('When swapping items', () => {
     context('with .swap(...) in default mode', () => {
         it('will replace an item with the one provided', () => {
