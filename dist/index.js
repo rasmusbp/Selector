@@ -4,23 +4,32 @@
 	(factory((global.StatefulSelector = global.StatefulSelector || {})));
 }(this, (function (exports) { 'use strict';
 
-var errors = {
+var logMessages = {
     NOT_EXIST: context => `${context} --> item does not exist.`,
     ALREADY_EXIST: context => `${context} --> item already exist.`,
     READ_ONLY: context => `${context} --> ${context} is a read only property`,
     ALREADY_SELECTED: context => `${context} --> item is already selected.`,
     NOT_SELECTED: context => `${context} --> item is not selected.`,
     NO_TRACKBY: context => `${context} --> action only works in track-by mode.`,
-    INVALID_TRACKBY_ITEM: context => `${context} --> item(s) must be objects in track-by mode.`
+    INVALID_TRACKBY_ITEM: context => `${context} --> item(s) must be objects in track-by mode.`,
+    CHANGE: () => `[ √ ] --> a potential change to current state has been applied.`
 };
 
-class SelectorError {
+class StateLog {
     constructor({ message, reason, data }) {
-        this.message = message;
-        this.reason = reason;
-        this.data = data;
+        Object.defineProperties(this, {
+            message: {
+                get: () => message
+            },
+            reason: {
+                get: () => reason
+            },
+            data: {
+                get: () => data
+            },
+        });
     }
-    print(options) {
+    print(options = { level: '' }) {
         switch (options.level) {
             case 'throw':
                 throw new Error(this.message);
@@ -43,6 +52,7 @@ class SelectorError {
     }
 }
 
+/// <reference path="./selector.d.ts"/>
 const internals = new WeakMap();
 const ADD = 'add';
 const REMOVE = 'remove';
@@ -53,8 +63,7 @@ class Selector {
             items: [],
             selected: []
         }, settings) {
-        const itemsMap = new Map();
-        const selectionsMap = new Map();
+        const stateMap = new Map();
         const subscribers = {
             onChanges: new Set(),
             onErrors: new Set()
@@ -65,59 +74,100 @@ class Selector {
             debug: false,
             validators: [() => true],
             providers: Object.assign({
-                Error: SelectorError
+                Log: StateLog
             }, settings.providers)
         }, settings);
         config.logLevel = config.strict ? 'error' : 'warn';
-        const createError = ({ reason, data, context = 'Selector' }) => {
-            const errFn = errors[reason] || (() => 'null');
-            const ErrorProvider = config.providers.Error;
-            return new ErrorProvider({
-                message: `Selector@${errFn(context)}`,
+        const createLog = ({ reason, data, context = 'Selector' }) => {
+            const logFn = logMessages[reason] || (() => 'null');
+            const LogProvider = config.providers.Log;
+            return new LogProvider({
+                message: `Selector@${logFn(context)}`,
                 reason,
                 data
             });
         };
-        const addTo = (map, items) => {
-            return items.reduce((hits, item) => {
-                const key = resolveKey(item);
-                map.set(key, item);
-                return [...hits, item];
-            }, []);
-        };
-        const removeFrom = (map, items) => {
-            return items.reduce((hits, item) => {
-                const key = resolveKey(item);
-                const wasRemoved = map.delete(key);
-                return wasRemoved ? [...hits, item] : hits;
-            }, []);
-        };
         const dispatchChange = (changes) => {
             subscribers.onChanges.forEach((observer) => {
-                observer(changes, this.state, this);
+                observer(this.state, changes, this);
             });
         };
-        const dispatchErrors = (errors$$1) => {
+        const dispatchErrors = (errors) => {
             subscribers.onErrors.forEach((observer) => {
-                observer(errors$$1, this.state, this);
+                observer(errors, this.state, this);
             });
         };
-        const dispatch = (status, changes, errors$$1) => {
-            if (status.hasErrors) {
-                dispatchErrors(errors$$1);
+        const dispatch = (meta, changes, errors) => {
+            if (config.debug) {
+                createLog({
+                    reason: 'CHANGE',
+                    data: {
+                        errors,
+                        changes,
+                        state: this.state
+                    },
+                    context: 'change'
+                }).print({ level: 'log' });
+            }
+            if (meta.hasErrors) {
+                dispatchErrors(errors);
                 if (config.strict)
                     return;
             }
-            if (status.hasChanges) {
+            if (meta.hasChanges) {
                 dispatchChange(changes);
             }
         };
-        const get = (item) => itemsMap.get(resolveKey(item));
-        const has = (item) => itemsMap.has(resolveKey(item));
-        const isSelected = (item) => selectionsMap.has(resolveKey(item));
-        const log = (errors$$1, level = config.logLevel) => {
-            if (errors$$1.length && (config.strict || config.debug)) {
-                errors$$1.forEach(error => error.print({ level }));
+        const get = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && !current.filtered ? current.value : undefined;
+        };
+        const has = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && current !== 0 && !current.filtered;
+        };
+        const isSelected = (item) => {
+            const current = stateMap.get(resolveKey(item));
+            return current && current !== 0 && current.selected && !current.filtered;
+        };
+        const addToStateMap = (items, state) => {
+            const { trackBy } = config;
+            return items.reduce((hits, item) => {
+                const key = resolveKey(item);
+                const current = stateMap.get(key);
+                if (current) {
+                    Object.assign(current, state);
+                    return [...hits, current.value];
+                }
+                else {
+                    const update = Object.assign({ value: item }, state);
+                    if (trackBy) {
+                        update.key = key;
+                    }
+                    stateMap.set(key, update);
+                    return [...hits, item];
+                }
+            }, []);
+        };
+        const removeFromStateMap = (items) => {
+            return items.map(item => {
+                stateMap.delete(resolveKey(item));
+                return item;
+            });
+        };
+        const getPredicateArgs = (item) => {
+            const args = {
+                value: item.value,
+                selected: item.selected
+            };
+            if (item.key) {
+                args.key = item.key;
+            }
+            return args;
+        };
+        const log = (errors, level = config.logLevel) => {
+            if (errors.length && (config.strict || config.debug)) {
+                errors.forEach(error => error.print({ level }));
             }
         };
         const resolverFor = {
@@ -133,7 +183,7 @@ class Selector {
                 },
                 validate(item, context) {
                     if (has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'ALREADY_EXIST',
                             data: item,
                             context,
@@ -146,7 +196,7 @@ class Selector {
             },
             getting: {
                 validate(item, context) {
-                    return has(item) ? get(item) : createError({
+                    return has(item) ? get(item) : createLog({
                         reason: 'NOT_EXIST',
                         data: item,
                         context,
@@ -156,14 +206,14 @@ class Selector {
             selecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     }
                     else if (isSelected(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'ALREADY_SELECTED',
                             data: get(item),
                             context,
@@ -177,14 +227,14 @@ class Selector {
             deselecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     }
                     else if (!isSelected(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_SELECTED',
                             data: get(item),
                             context,
@@ -203,12 +253,15 @@ class Selector {
                     return iterator(this.state, initialState, input);
                 }
                 else {
-                    return this.state.items.reduce((acc, item, index) => {
-                        if (input(item, index) === true) {
-                            return [...acc, item];
+                    const acc = [];
+                    for (let [key, item] of stateMap) {
+                        if (item.filtered)
+                            continue;
+                        if (input(item) === true) {
+                            acc.push(item.value);
                         }
-                        return acc;
-                    }, []);
+                    }
+                    return acc;
                 }
             }
             else if (Array.isArray(input)) {
@@ -221,7 +274,7 @@ class Selector {
         const groupByType = (group, item) => {
             if (!item)
                 return group;
-            if (item instanceof config.providers.Error) {
+            if (item instanceof config.providers.Log) {
                 group.errors.push(item);
             }
             else {
@@ -255,40 +308,56 @@ class Selector {
                 };
             }
             return {
-                items: Array.isArray(input.items) ? input.items.slice() : input.items,
-                selected: Array.isArray(input.selected) ? input.selected.slice() : input.selected
+                items: Array.isArray(input.items) ? input.items.slice(0) : input.items,
+                selected: Array.isArray(input.selected) ? input.selected.slice(0) : input.selected
             };
+        };
+        const getCurrentState = () => {
+            return Array.from(stateMap.values()).reduce((state, item) => {
+                if (item.filtered)
+                    return state;
+                if (item.selected) {
+                    state.selected.push(item.value);
+                }
+                state.items.push(item.value);
+                return state;
+            }, { items: [], selected: [] });
+        };
+        const updateCurrentState = () => {
+            internals.get(this).currentState = getCurrentState();
         };
         internals.set(this, {
             log,
             config,
-            itemsMap,
             resolverFor,
             subscribers,
-            selectionsMap,
             resolveInput,
             resolveKey,
             resolveItemsWith,
-            createError,
+            createLog,
             createStateObject,
+            getPredicateArgs,
+            stateMap,
             has,
             get,
+            addToStateMap,
+            removeFromStateMap,
             isSelected,
-            addTo,
-            removeFrom,
-            dispatch
+            dispatch,
+            updateCurrentState,
+            currentState: { items: [], selected: [] }
         });
         // kick it off!
         this.setState(initialState);
-        internals.get(this).initialState = this.state;
+        internals.get(this).initialState = getCurrentState();
     }
-    static mirror(change) {
-        return {
-            [ADD]: (change[REMOVE] || []).slice(0),
-            [REMOVE]: (change[ADD] || []).slice(0),
-            [SELECT]: (change[DESELECT] || []).slice(0),
-            [DESELECT]: (change[SELECT] || []).slice(0),
-        };
+    revert(change) {
+        return this.applyChange({
+            [ADD]: change[REMOVE],
+            [REMOVE]: change[ADD],
+            [SELECT]: change[DESELECT],
+            [DESELECT]: change[SELECT],
+        });
     }
     subscribe(observer, errorObserver) {
         const { subscribers } = internals.get(this);
@@ -312,12 +381,6 @@ class Selector {
         return this.applyChange({
             [DESELECT]: input
         });
-    }
-    selectAll() {
-        return this.deselectAll().select(this.state.items);
-    }
-    deselectAll() {
-        return this.deselect(this.state.selected);
     }
     invert() {
         return this.toggle(this.state.items);
@@ -346,55 +409,88 @@ class Selector {
             [REMOVE]: input
         });
     }
-    removeAll() {
-        return this.remove(this.state.items);
-    }
     reset() {
         const { initialState } = internals.get(this);
+        console.log(initialState);
         return this.setState(initialState);
+    }
+    filter(predicate) {
+        const { stateMap, dispatch, updateCurrentState, getPredicateArgs } = internals.get(this);
+        let hasChanges = false;
+        const changes = {
+            [ADD]: [],
+            [REMOVE]: [],
+            [SELECT]: [],
+            [DESELECT]: []
+        };
+        stateMap.forEach((item, index) => {
+            const result = predicate(getPredicateArgs(item));
+            if (result === true && item.filtered) {
+                hasChanges = true;
+                item.filtered = false;
+                changes[ADD].push(item.value);
+                if (item.selected) {
+                    changes[SELECT].push(item.value);
+                }
+            }
+            else if (result === false && !item.filtered) {
+                hasChanges = true;
+                item.filtered = true;
+                changes[REMOVE].push(item.value);
+                if (item.selected) {
+                    changes[DESELECT].push(item.value);
+                }
+            }
+        });
+        updateCurrentState();
+        dispatch({ hasChanges, hasErrors: false }, changes, []);
+        return this;
+    }
+    some(predicate) {
+        const { stateMap, getPredicateArgs } = internals.get(this);
+        let someTrue = false;
+        for (let [key, item] of stateMap) {
+            if (item.filtered)
+                continue;
+            if (predicate(getPredicateArgs(item)) === true) {
+                someTrue = true;
+                break;
+            }
+        }
+        return someTrue;
+    }
+    every(predicate) {
+        const { stateMap, getPredicateArgs } = internals.get(this);
+        let allTrue = true;
+        for (let [key, item] of stateMap) {
+            if (item.filtered)
+                continue;
+            const input = { value: item.value, selected: item.selected };
+            if (predicate(getPredicateArgs(item)) !== true) {
+                allTrue = false;
+                break;
+            }
+        }
+        return allTrue;
     }
     isSelected(input) {
         const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections)
-            return false;
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
-        log(errors$$1, 'warn');
-        return hits.every(isSelected);
-    }
-    isSomeSelected(input) {
-        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections)
-            return false;
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input, 'isSomeSelected');
-        log(errors$$1, 'warn');
-        return hits.some(isSelected);
-    }
-    isOnlySelected(input) {
-        const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
-        if (!this.hasSelections)
-            return false;
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input, 'isOnlySelected');
-        log(errors$$1, 'warn');
-        return !!hits.length && hits.every(isSelected)
-            && this.state.selected.length === hits.length;
+        const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
+        log(errors, 'warn');
+        return !!hits.length && hits.every(isSelected);
     }
     has(input) {
         const { resolveItemsWith, resolverFor, has } = internals.get(this);
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.all, input);
+        const { hits, errors } = resolveItemsWith(resolverFor.all, input);
         return !!hits.length && hits.every(has);
     }
-    hasSome(input) {
-        const { resolveItemsWith, resolverFor } = internals.get(this);
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input);
-        return !!hits.length;
-    }
     swap(input, newItem) {
-        const { config, log, createError, resolveItemsWith, resolverFor, resolveKey, isSelected, itemsMap, dispatch, selectionsMap } = internals.get(this);
-        const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, input, 'swapping');
+        const { config, log, createLog, resolveItemsWith, resolverFor, resolveKey, isSelected, updateCurrentState, stateMap, dispatch } = internals.get(this);
+        const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'swapping');
         let hasErrors = false;
-        if (errors$$1.length) {
+        if (errors.length) {
             hasErrors = true;
-            log(errors$$1);
+            log(errors);
         }
         const oldItem = hits[0];
         const key = resolveKey(oldItem);
@@ -402,31 +498,31 @@ class Selector {
         let hasChanges = false;
         if (!hasErrors) {
             hasChanges = true;
-            itemsMap.set(key, newItem);
-            if (wasSelected) {
-                selectionsMap.set(key, newItem);
-            }
+            stateMap.set(key, {
+                value: newItem,
+                selected: wasSelected
+            });
         }
+        updateCurrentState();
         dispatch({ hasChanges, hasErrors }, {
             [ADD]: [newItem],
             [SELECT]: wasSelected ? [newItem] : [],
             [DESELECT]: wasSelected ? [oldItem] : [],
             [REMOVE]: [oldItem]
-        }, errors$$1);
+        }, errors);
         return this;
     }
     setState(newState) {
-        const { state } = this;
-        const { createStateObject } = internals.get(this);
+        const { createStateObject, currentState } = internals.get(this);
         const { items, selected } = createStateObject(newState);
         return this.applyChange({
-            [REMOVE]: state.items,
+            [REMOVE]: currentState.items,
             [ADD]: items,
             [SELECT]: selected
         });
     }
     applyChange(changes) {
-        const { log, config, addTo, removeFrom, dispatch, resolveItemsWith, resolverFor, itemsMap, selectionsMap, } = internals.get(this);
+        const { log, addToStateMap, removeFromStateMap, config, dispatch, resolveItemsWith, resolverFor, updateCurrentState } = internals.get(this);
         const orderOfActions = [REMOVE, ADD, DESELECT, SELECT];
         const resolvedChanges = orderOfActions.reduce((acc, action) => {
             if (!changes[action] && changes[action] !== 0) {
@@ -434,47 +530,49 @@ class Selector {
             }
             const actions = {
                 [REMOVE]: () => {
-                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.getting, changes[REMOVE], REMOVE);
-                    log(errors$$1);
-                    acc.errors.push(...errors$$1);
-                    acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(itemsMap, hits) : [];
+                    const { hits, errors } = resolveItemsWith(resolverFor.getting, changes[REMOVE], REMOVE);
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+                    if (!(acc.hasErrors && config.strict)) {
+                        hits.forEach((item) => {
+                            if (this.isSelected(item)) {
+                                acc.changes[DESELECT].push(item);
+                            }
+                            
+                        });
+                    }
+                    const change = !(acc.hasErrors && config.strict) ? removeFromStateMap(hits) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
-                    change.forEach((item) => {
-                        if (this.isSelected(item)) {
-                            acc.changes[DESELECT].push(...removeFrom(selectionsMap, [item]));
-                        }
-                        
-                    });
                     acc.changes[REMOVE] = change;
                 },
                 [ADD]: () => {
-                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.adding, changes[ADD], ADD);
-                    log(errors$$1);
-                    acc.errors.push(...errors$$1);
-                    acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? addTo(itemsMap, hits) : [];
+                    const { hits, errors } = resolveItemsWith(resolverFor.adding, changes[ADD], ADD);
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false, filtered: false }) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     acc.changes[ADD] = change;
                 },
                 [DESELECT]: () => {
-                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT);
-                    log(errors$$1);
-                    acc.errors.push(...errors$$1);
-                    acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? removeFrom(selectionsMap, hits) : [];
+                    const { hits, errors } = resolveItemsWith(resolverFor.deselecting, changes[DESELECT], DESELECT);
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false }) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     acc.changes[DESELECT].push(...change);
                 },
                 [SELECT]: () => {
-                    const { hits, errors: errors$$1 } = resolveItemsWith(resolverFor.selecting, changes[SELECT], SELECT);
-                    log(errors$$1);
-                    acc.errors.push(...errors$$1);
-                    acc.hasErrors = acc.hasErrors || !!errors$$1.length;
-                    const change = !(acc.hasErrors && config.strict) ? addTo(selectionsMap, hits) : [];
+                    const { hits, errors } = resolveItemsWith(resolverFor.selecting, changes[SELECT], SELECT);
+                    log(errors);
+                    acc.errors.push(...errors);
+                    acc.hasErrors = acc.hasErrors || !!errors.length;
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: true }) : [];
                     acc.hasChanges = acc.hasChanges || !!change.length;
                     acc.changes[SELECT] = change;
-                }
+                },
             };
             actions[action]();
             return acc;
@@ -489,28 +587,14 @@ class Selector {
             },
             errors: []
         });
+        updateCurrentState();
         const { hasChanges, hasErrors } = resolvedChanges;
         dispatch({ hasChanges, hasErrors }, resolvedChanges.changes, resolvedChanges.errors);
         return this;
     }
     get state() {
-        const { selectionsMap, itemsMap } = internals.get(this);
-        return {
-            items: Array.from(itemsMap.values()),
-            selected: Array.from(selectionsMap.values())
-        };
-    }
-    get hasSelections() {
-        const { selectionsMap } = internals.get(this);
-        return !!selectionsMap.size;
-    }
-    get hasItems() {
-        const { itemsMap } = internals.get(this);
-        return !!itemsMap.size;
-    }
-    get isAllSelected() {
-        const { itemsMap, selectionsMap } = internals.get(this);
-        return itemsMap.size === selectionsMap.size;
+        const { currentState } = internals.get(this);
+        return currentState;
     }
     get isValid() {
         const { validators } = internals.get(this).config;
@@ -521,21 +605,10 @@ class Selector {
 function createSelector(state, config = {}) {
     return new Selector(state, config);
 }
-const defaults = { createSelector, Selector };
-const selector = createSelector([
-    { id: '1', name: 'John' }
-]);
-const state = selector.state.selected;
-const mapped = state.map(item => {
-    item.name = item.name + ' is awesome!';
-    return item;
-});
-mapped.forEach(item => console.log(item.name));
-state.forEach(item => console.log(item.name));
+var index = { createSelector };
 
-exports['default'] = defaults;
 exports.createSelector = createSelector;
-exports.Selector = Selector;
+exports['default'] = index;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

@@ -70,15 +70,12 @@ describe('When adding items', () => {
 
     context('with .add(...) in debug mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore()
         });
 
         it('it warns about duplicates', () => {
@@ -238,15 +235,12 @@ describe('When removing items', () => {
 
     context('with .remove(...) in debug mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore()
         });
 
         it('it will warn about removing non-existing items', () => {
@@ -503,15 +497,12 @@ describe('When swapping items', () => {
 
     context('with .swap(...) in debug by mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore()
         });
 
         it('it will warn if trying to swap non-existing item', () => {

@@ -126,15 +126,12 @@ describe('When setting state', () => {
 
     context('with .setState(...) in debug mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore()
         });
         
         it('it warns if selected is not present in items', () => {

@@ -30,7 +30,7 @@ export default class StateLog<T> {
                 break;
             case 'log':
                 console.log(this.message, this.data);
-                break; 
+                break;   
             case 'silent':
                 break;        
             default:

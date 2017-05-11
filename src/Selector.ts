@@ -63,11 +63,11 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 createLog({
                     reason: 'CHANGE',
                     data: {
-                        errors,
+                        errors, 
                         changes,
                         state: this.state
                     },
-                    context: 'dispatch'
+                    context: 'change'
                 }).print({ level: 'log' });
             }    
             if (meta.hasErrors) {
@@ -279,7 +279,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             };
         }
 
-        function getCurrentState () {
+        const getCurrentState = () => {
             return Array.from<Slc.ItemState<T>>(stateMap.values()).reduce((state, item) => {
                 if (item.filtered) return state;
                 if (item.selected) {
@@ -288,6 +288,10 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 state.items.push(item.value);
                 return state;
             }, { items: [], selected: []});
+        }
+
+        const updateCurrentState = () => {
+            internals.get(this).currentState = getCurrentState();
         }
 
         internals.set(this, {
@@ -308,9 +312,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             removeFromStateMap,
             isSelected,
             dispatch,
-            updateCurrentState: () => {
-                internals.get(this).currentState = getCurrentState();
-            },
+            updateCurrentState,
             currentState: { items: [], selected: [] }
         });
 
@@ -582,8 +584,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                     acc.errors.push(...errors);
                     acc.hasErrors = acc.hasErrors || !!errors.length;
 
-                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false, filtered: false }) : []; 
-                                       
+                    const change = !(acc.hasErrors && config.strict) ? addToStateMap(hits, { selected: false, filtered: false }) : [];                    
                     acc.hasChanges = acc.hasChanges || !!change.length;
 
                     acc.changes[ADD] = change;

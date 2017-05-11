@@ -115,15 +115,12 @@ describe('When validating selected', () => {
 
     context('with .isSelected(...) in debug mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore() // to silence the reporter
         });
 
         it('it warns if provided item is not present in items', () => {
@@ -139,15 +136,12 @@ describe('When validating selected', () => {
 
     context('with .isSelected(...) in strict mode', () => {
         let warn : sinon.SinonStub;
-        let log : sinon.SinonStub;
 
         beforeEach(() => {
             warn = sinon.stub(console, 'warn')
-            log = sinon.stub(console, 'log') // to silence the reporter
         });
         afterEach(() => {
             warn.restore()
-            log.restore() // to silence the reporter
         });
 
         it('it warns if provided item is not present in items', () => {
