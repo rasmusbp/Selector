@@ -70,9 +70,16 @@ describe('When adding items', () => {
 
     context('with .add(...) in debug mode', () => {
         let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
 
-        beforeEach(() => warn = sinon.stub(console, 'warn'));
-        afterEach(() => warn.restore());
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore()
+        });
 
         it('it warns about duplicates', () => {
             const selector = createSelector([1,2,3], { debug: true });
@@ -230,10 +237,17 @@ describe('When removing items', () => {
     });
 
     context('with .remove(...) in debug mode', () => {
-         let warn : sinon.SinonStub;
+        let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
 
-        beforeEach(() => warn = sinon.stub(console, 'warn'));
-        afterEach(() => warn.restore());
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore()
+        });
 
         it('it will warn about removing non-existing items', () => {
             const selector = createSelector([1,2,3], { debug: true });
@@ -489,9 +503,16 @@ describe('When swapping items', () => {
 
     context('with .swap(...) in debug by mode', () => {
         let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
 
-        beforeEach(() => warn = sinon.stub(console, 'warn'));
-        afterEach(() => warn.restore());
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore()
+        });
 
         it('it will warn if trying to swap non-existing item', () => {
             const han = { id: '2', name: 'Han' };

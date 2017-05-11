@@ -126,9 +126,16 @@ describe('When setting state', () => {
 
     context('with .setState(...) in debug mode', () => {
         let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
 
-        beforeEach(() => warn = sinon.stub(console, 'warn'));
-        afterEach(() => warn.restore());
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore()
+        });
         
         it('it warns if selected is not present in items', () => {
             const selector = createSelector<number>({
@@ -227,7 +234,20 @@ describe('When getting state', () => {
             expect(state).to.deep.equal(initialState);
         });
 
-        it('it yields a new state on each get', () => {
+         it('it yields the same state if nothing has changed', () => {
+            const initialState = {
+                items: [1,2,3],
+                selected: [2]
+            };
+
+            const selector = createSelector(initialState);
+            const state_1 = selector.state;
+            const state_2 = selector.state;
+
+            expect(state_1).to.equal(state_2);
+        });
+
+        it('it yields a new state on each change', () => {
             const initialState = {
                 items: [1,2,3],
                 selected: [2]
@@ -244,6 +264,7 @@ describe('When getting state', () => {
 
             expect(state_1).to.deep.equal(initialState);
             expect(state_2).to.deep.equal(newState);
+            expect(state_1).to.not.deep.equal(state_2);
         });
     });
 });

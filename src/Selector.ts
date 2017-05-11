@@ -1,6 +1,6 @@
 /// <reference path="./selector.d.ts"/>
 import errors from './error-messages';
-import {default as StateError} from './state-error';
+import {default as StateLog} from './state-log';
 
 const internals = new WeakMap();
 const noop = () => {};
@@ -20,23 +20,22 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             onChanges: new Set(),
             onErrors: new Set()
         };
-        const currentState : Slc.State<T> = { items: [], selected: [] };
         const config : Slc.Config = Object.assign({
             trackBy: undefined,
             strict: false,
             debug: false,
             validators: [() => true],
             providers: Object.assign({
-                Error: StateError
+                Log: StateLog
             }, settings.providers)
         }, settings);
 
         config.logLevel = config.strict ? 'error' : 'warn';
 
-        const createError = ({ reason, data, context = 'Selector' }) : Slc.StateError<T> => {
+        const createLog = ({ reason, data, context = 'Selector' }) : Slc.StateLog<T> => {
             const errFn = errors[reason] || (() => 'null');
-            const ErrorProvider = config.providers.Error;
-            return new ErrorProvider({
+            const LogProvider = config.providers.Log;
+            return new LogProvider({
                 message: `Selector@${errFn(context)}`,
                 reason,
                 data
@@ -49,22 +48,33 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             });
         }
 
-        const dispatchErrors = (errors: Slc.StateError<T>[]) => {
+        const dispatchErrors = (errors: Slc.StateLog<T>[]) => {
             subscribers.onErrors.forEach((observer) => {
                 observer(errors, this.state, this);
             });
         }
 
         const dispatch = (
-            status: { hasErrors: boolean, hasChanges: boolean },
+            meta: { hasErrors: boolean, hasChanges: boolean },
             changes? : Slc.Change<T>,
-            errors?: Slc.StateError<T>[]
-        ) => {    
-            if (status.hasErrors) {
+            errors?: Slc.StateLog<T>[]
+        ) => {
+            if (config.debug) {
+                createLog({
+                    reason: 'CHANGE',
+                    data: {
+                        errors,
+                        changes,
+                        state: this.state
+                    },
+                    context: 'dispatch'
+                }).print({ level: 'log' });
+            }    
+            if (meta.hasErrors) {
                 dispatchErrors(errors);
                 if (config.strict) return;
             }
-            if (status.hasChanges) {
+            if (meta.hasChanges) {
                 dispatchChange(changes);
             }
         }
@@ -141,7 +151,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
                 },
                 validate(item, context) {
                     if (has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'ALREADY_EXIST',
                             data: item,
                             context,
@@ -154,7 +164,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             },
             getting: {
                 validate(item, context) {
-                    return has(item) ? get(item) : createError({
+                    return has(item) ? get(item) : createLog({
                         reason: 'NOT_EXIST',
                         data: item,
                         context,
@@ -164,13 +174,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             selecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     } else if (isSelected(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'ALREADY_SELECTED',
                             data: get(item),
                             context,
@@ -183,13 +193,13 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             deselecting: {
                 validate(item, context) {
                     if (!has(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_EXIST',
                             data: item,
                             context,
                         });
                     } else if (!isSelected(item)) {
-                        return createError({
+                        return createLog({
                             reason: 'NOT_SELECTED',
                             data: get(item),
                             context,
@@ -225,7 +235,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
 
         const groupByType = (group, item) => {
             if (!item) return group;
-            if (item instanceof config.providers.Error) {
+            if (item instanceof config.providers.Log) {
                 group.errors.push(item);
             } else {
                 group.hits.push(item);
@@ -233,7 +243,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             return group;
         }
 
-        const resolveItemsWith = (resolver, input, context) : { items: T[], errors: Slc.StateError<T>[] } => {
+        const resolveItemsWith = (resolver, input, context) : { items: T[], errors: Slc.StateLog<T>[] } => {
             const resolvedInput = resolveInput(input, resolver.iterator);
             const output = { hits: [], errors: [] };
 
@@ -264,8 +274,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             }
             
             return {
-                items: Array.isArray(input.items) ? input.items.slice() : input.items, 
-                selected: Array.isArray(input.selected) ? input.selected.slice() : input.selected
+                items: Array.isArray(input.items) ? input.items.slice(0) : input.items, 
+                selected: Array.isArray(input.selected) ? input.selected.slice(0) : input.selected
             };
         }
 
@@ -280,12 +290,6 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             }, { items: [], selected: []});
         }
 
-        function updateCurrentState () {
-            const newState = getCurrentState();
-            currentState.items = newState.items;
-            currentState.selected = newState.selected;
-        }
-
         internals.set(this, {
             log,
             config,
@@ -294,10 +298,8 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             resolveInput,
             resolveKey,
             resolveItemsWith, 
-            createError,
+            createLog,
             createStateObject,
-            currentState,
-            updateCurrentState,
             getPredicateArgs,
             stateMap,
             has,
@@ -305,12 +307,16 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             addToStateMap,
             removeFromStateMap,
             isSelected,
-            dispatch
+            dispatch,
+            updateCurrentState: () => {
+                internals.get(this).currentState = getCurrentState();
+            },
+            currentState: { items: [], selected: [] }
         });
 
         // kick it off!
         this.setState(initialState);
-        internals.get(this).initialState = this.state;
+        internals.get(this).initialState = getCurrentState();
         
     }
 
@@ -386,6 +392,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
 
     reset () {
         const { initialState } = internals.get(this);
+        console.log(initialState)
         return this.setState(initialState);
     }
 
@@ -474,7 +481,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         const { 
             config,
             log,
-            createError,
+            createLog,
             resolveItemsWith,
             resolverFor,
             resolveKey,
@@ -632,10 +639,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
 
     get state () : Slc.State<T> {
         const { currentState } = internals.get(this);
-        return {
-            items: currentState.items.slice(0),
-            selected: currentState.selected.slice(0)
-        }
+        return currentState;
     }
 
     get isValid() : boolean {

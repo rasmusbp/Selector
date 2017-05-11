@@ -66,11 +66,6 @@ describe('When validating items', () => {
 });
 
 describe('When validating selected', () => {
-    let warn : sinon.SinonStub;
-
-    beforeEach(() => warn = sinon.stub(console, 'warn'));
-    afterEach(() => warn.restore());
-
     context('with .isSelected(...) in default mode', () => {
         it('it will return true if provided item is selected', () => {
             const selector = createSelector({
@@ -119,6 +114,18 @@ describe('When validating selected', () => {
     });
 
     context('with .isSelected(...) in debug mode', () => {
+        let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
+
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore() // to silence the reporter
+        });
+
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],
@@ -131,6 +138,18 @@ describe('When validating selected', () => {
     });
 
     context('with .isSelected(...) in strict mode', () => {
+        let warn : sinon.SinonStub;
+        let log : sinon.SinonStub;
+
+        beforeEach(() => {
+            warn = sinon.stub(console, 'warn')
+            log = sinon.stub(console, 'log') // to silence the reporter
+        });
+        afterEach(() => {
+            warn.restore()
+            log.restore() // to silence the reporter
+        });
+
         it('it warns if provided item is not present in items', () => {
             const selector = createSelector({
                 items: [1,2,3],

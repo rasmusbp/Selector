@@ -3,9 +3,9 @@
 // Definitions by: Rasmus Bangsted Pedersen <https://github.com/rasmusbp/Selector>
 
 declare namespace Slc {
-    export class StateError<T> {
+    export class StateLog<T> {
         /**
-         * Data that caused the error
+         * Data that caused the log entry
          * 
          * @type {T}
          * @memberof StateError
@@ -21,7 +21,7 @@ declare namespace Slc {
         readonly message: string;
 
         /**
-         * Reason for error
+         * Reason for log entry
          * 
          * @type {string}
          * @memberof StateError
@@ -29,14 +29,14 @@ declare namespace Slc {
         readonly reason: string;
 
         /**
-         * Log or throw the error
+         * Log or the entry or throw as error
          * 
          * @param {options} { level: string } 
          * @returns {StateError<T>} 
          * 
          * @memberof StateError
          */
-        print(options?: { level: string}) : StateError<T>;
+        print(options?: { level: string}) : StateLog<T>;
     }
 
     export interface LogOptions {
@@ -515,7 +515,7 @@ declare namespace Slc {
     }
     
     interface Providers {
-        Error: any;
+        Log: any;
     }
 
     interface Settings {
@@ -565,7 +565,7 @@ declare namespace Slc {
     }
 
     interface ErrorObserver<T,P> {
-        (errors: StateError<T>[], state: State<T>, selector: Selector<T,P>): void;
+        (errors: StateLog<T>[], state: State<T>, selector: Selector<T,P>): void;
     }
 
     interface Predicate<T,P> {
