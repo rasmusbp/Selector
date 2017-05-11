@@ -1,5 +1,5 @@
 /// <reference path="./selector.d.ts"/>
-import errors from './error-messages';
+import logMessages from './log-messages';
 import {default as StateLog} from './state-log';
 
 const internals = new WeakMap();
@@ -33,10 +33,10 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         config.logLevel = config.strict ? 'error' : 'warn';
 
         const createLog = ({ reason, data, context = 'Selector' }) : Slc.StateLog<T> => {
-            const errFn = errors[reason] || (() => 'null');
+            const logFn = logMessages[reason] || (() => 'null');
             const LogProvider = config.providers.Log;
             return new LogProvider({
-                message: `Selector@${errFn(context)}`,
+                message: `Selector@${logFn(context)}`,
                 reason,
                 data
             });
