@@ -561,7 +561,7 @@ declare namespace Slc {
     }
 
     interface Observer<T,P> {
-        (changes: Change<T>, state: State<T>, selector: Selector<T,P>): void;
+        (state: State<T>, changes: Change<T>, selector: Selector<T,P>): void;
     }
 
     interface ErrorObserver<T,P> {

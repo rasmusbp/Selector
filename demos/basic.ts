@@ -1,11 +1,11 @@
 import {createSelector} from '../src/index';
 
 const items = [
-   1,2,3,4,5,6
+   { id: 1 }
 ];
 
 const selector = createSelector(items);
 
-selector.subscribe((changes, state) => {
+selector.subscribe((state, changes) => {
     console.log(changes, state)
 });
