@@ -38,7 +38,7 @@ describe('When subscribing to state changes', () => {
                 remove: []
             }
 
-            expect(observer).to.have.been.calledWithExactly(expectedChange, selector.state, selector);
+            expect(observer).to.have.been.calledWithExactly(selector.state, expectedChange, selector);
         });
 
         it('it will also notify error observer on invalid changes with unsuccessful changes', () => {
@@ -141,7 +141,7 @@ describe('When subscribing to state changes', () => {
                 remove: []
             }
 
-            expect(observer).to.have.been.calledWithMatch(change, selector.state, selector);
+            expect(observer).to.have.been.calledWithMatch(selector.state, change, selector);
         });
     });
 

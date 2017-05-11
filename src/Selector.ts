@@ -44,7 +44,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
     
         const dispatchChange = (changes : Slc.Change<T>) => {
             subscribers.onChanges.forEach((observer) => {
-                observer(changes, this.state, this);
+                observer(this.state, changes, this);
             });
         }
 
