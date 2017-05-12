@@ -508,7 +508,7 @@ declare namespace Slc {
          *         }}
          * @memberof Selector
          */
-        state: {
+        readonly state: {
             items: T[],
             selected: T[]
         };

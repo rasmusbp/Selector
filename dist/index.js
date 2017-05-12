@@ -98,17 +98,6 @@ class Selector {
             });
         };
         const dispatch = (meta, changes, errors) => {
-            if (config.debug) {
-                createLog({
-                    reason: 'CHANGE',
-                    data: {
-                        errors,
-                        changes,
-                        state: this.state
-                    },
-                    context: 'change'
-                }).print({ level: 'log' });
-            }
             if (meta.hasErrors) {
                 dispatchErrors(errors);
                 if (config.strict)
@@ -116,6 +105,17 @@ class Selector {
             }
             if (meta.hasChanges) {
                 dispatchChange(changes);
+                if (config.debug) {
+                    createLog({
+                        reason: 'CHANGE',
+                        data: {
+                            errors,
+                            changes,
+                            state: this.state
+                        },
+                        context: 'change'
+                    }).print({ level: 'log' });
+                }
             }
         };
         const get = (item) => {

@@ -58,24 +58,24 @@ class Selector <T,P> implements Slc.Selector<T,P> {
             meta: { hasErrors: boolean, hasChanges: boolean },
             changes? : Slc.Change<T>,
             errors?: Slc.StateLog<T>[]
-        ) => {
-            if (config.debug) {
-                createLog({
-                    reason: 'CHANGE',
-                    data: {
-                        errors, 
-                        changes,
-                        state: this.state
-                    },
-                    context: 'change'
-                }).print({ level: 'log' });
-            }    
+        ) => {   
             if (meta.hasErrors) {
                 dispatchErrors(errors);
                 if (config.strict) return;
             }
             if (meta.hasChanges) {
                 dispatchChange(changes);
+                if (config.debug) {
+                    createLog({
+                        reason: 'CHANGE',
+                        data: {
+                            errors, 
+                            changes,
+                            state: this.state
+                        },
+                        context: 'change'
+                    }).print({ level: 'log' });
+                } 
             }
         }
 
