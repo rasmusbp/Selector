@@ -18,6 +18,33 @@ The subset can be seen as a local state of the list, and the bulk action itself 
 It can be said that the subset of items is in a "selected" state and the rest is not.
 By deducing a state into a binary representation it becomes a lot simpler to reason about and less painful to manage.
 
+**Enjoy!**
+
+- [Gets started](#get-started)
+- [API](#api)
+    - [methods](#methods)
+        - [.add()](#add)
+        - [.remove()](#remove)
+        - [.select()](#select)
+        - [.deselect()](#deselect)
+        - [.toggle()](#toggle)
+        - [.filter()](#filter)
+        - [.invert()](#invert)
+        - [.revert()](#reset)
+        - [.setState()](#setstate)
+        - [.applyChange()](#applychange)
+        - [.reset()](#reset)
+        - [.swap()](#swap)
+        - [.subscribe()](#subscribe)
+        - [.isSelected()](#isselected)
+        - [.has()](#has)
+        - [.every()](#every)
+        - [.some()](#some)
+    - [properties](#properties)
+        - [.isValid](#isvalid)
+        - [.state](#state)
+
+
 ## Get started
 
 Install via npm:
@@ -89,7 +116,7 @@ const selector = createSelector([1,2], { debug: true });
 selector.add([1,2,3]); 
 
 // outputs a warning saying that 9 does not exist, but will still select 1.
-selector.select([1,2,9]); 
+selector.select([1,9]); 
 
 // outputs a warning saying that 2 is not selected, but will still deselect 1.
 selector.deselect([1,2]);
