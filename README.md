@@ -1,8 +1,8 @@
 # Selector
 > A small ~3KB (gzipped) dependency-free abstraction to centralize common selection patterns and make local state management less painfull.
 
-- [Gets started](#get-started)
-- [Usage](./examples.md)
+- [Get started](#get-started)
+- [Usage](./usage.md)
 - [API](./api.md)
 
 ## A word on state management
