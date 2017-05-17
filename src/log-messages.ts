@@ -6,5 +6,5 @@ export default {
     NOT_SELECTED: context => `${context} --> item is not selected.`,
     NO_TRACKBY: context => `${context} --> action only works in track-by mode.`,
     INVALID_TRACKBY_ITEM: context => `${context} --> item(s) must be objects in track-by mode.`,
-    CHANGE: () => `[ √ ] --> a potential change to current state has been applied.`
+    CHANGE: () => `[ √ ] --> state has changed.`
 }
