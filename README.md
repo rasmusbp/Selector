@@ -107,7 +107,7 @@ selector.select(1).deselect([1,2]);
 ```
 
 ### .add()
-`.add( item | item[] | iterator ) : instance`
+> `.add( item | item[] | iterator ) : instance`
 
 Add items to selector.
 ```js
@@ -120,7 +120,7 @@ selector.add(item => item.value * 2);
 console.log(seletor.state.items); // [1,2,3,4,6]
 ```
 ### .remove()
-`.remove( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+> `.remove( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
 Remove items from selector.
 ```js
@@ -148,7 +148,7 @@ console.log(seletor.state.items); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .select()
-`.select( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+> `.select( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
 Select items from selector.
 ```js
@@ -173,7 +173,7 @@ console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .deselect()
-`.deselect( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+> `.deselect( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
 Deselect items from selector.
 ```js
@@ -202,7 +202,7 @@ console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .filter()
-`.filter( predicate  ) : instance`
+> `.filter( predicate  ) : instance`
 
 Filter items and selections.
 ```js
