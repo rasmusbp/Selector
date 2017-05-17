@@ -1,5 +1,5 @@
 # Selector
-> Abstraction to centralize common selection patterns and make local state management less painfull.
+> A small ~3KB (gzipped) dependency-free abstraction to centralize common selection patterns and make local state management less painfull.
 
 ## A word on state management
 Eventhough it's common practice not to encourage building state machines, sometimes local state management in a system is a nescessity _(or simply the lesser evil)_.
