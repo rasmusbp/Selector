@@ -2,7 +2,7 @@
 > A small ~3KB (gzipped) dependency-free abstraction to centralize common selection patterns and make local state management less painfull.
 
 - [Gets started](#get-started)
-- [Usage](./usage.md)
+- [Usage](./examples.md)
 - [API](./api.md)
 
 ## A word on state management
@@ -22,8 +22,6 @@ The subset can be seen as a local state of the list, and the bulk action itself 
 It can be said that the subset of items is in a "selected" state and the rest is not.
 By deducing a state into a binary representation it becomes a lot simpler to reason about and less painful to manage.
 
-**Enjoy!**
-
 ## Get started
 
 Install via npm:
@@ -37,3 +35,5 @@ Create an instance
 import {createSelector} from 'stateful-selector';
 const selector = createSelector();
 ```
+
+**Enjoy!**
