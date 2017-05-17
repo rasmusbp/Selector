@@ -1,6 +1,7 @@
 # Selector API
 
 - [methods](#methods)
+    - [createSelector()](#createselector)
     - [.add()](#add)
     - [.remove()](#remove)
     - [.select()](#select)
@@ -24,7 +25,9 @@
 
 ### Methods
 ---
-#### createSelector(initialState?, config?)
+#### createSelector()
+> `createSelector(initialState?, config?)`
+
 Returns an instance of `Selector`. 
 Can be invoked with an initial state and/or with a configuration.
 ```js
