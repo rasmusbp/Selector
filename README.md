@@ -22,7 +22,9 @@ By deducing a state into a binary representation it becomes a lot simpler to rea
 
 Install via npm:
 
-`npm install stateful-selector`
+```
+npm install stateful-selector
+```
 
 Create an instance
 ```js
@@ -97,10 +99,10 @@ const selector = createSelector([1,2], { strict: true });
 // outputs an error saying that 1 and 2 are existing items, and will NOT add 3.
 selector.add([1,2,3]);
 
-// outputs an errer saying that 9 does not exist, and will NOT select 1.
+// outputs an error saying that 9 does not exist, and will NOT select 1.
 selector.select([1,9]); 
 
-// outputs a warning saying that 2 is not selected, and will NOT deselect 1.
+// outputs a error saying that 2 is not selected, and will NOT deselect 1.
 selector.select(1).deselect([1,2]);
 ```
 
@@ -114,7 +116,7 @@ selector.add([1,2,3]);
 
 const selector = createSelector([1,2,3]);
 selector.add(item => item.value * 2);
-console.log(seletor.state.items) // [1,2,3,4,6]
+console.log(seletor.state.items); // [1,2,3,4,6]
 ```
 ### .remove()
 Remove items from selector.
@@ -129,5 +131,51 @@ const selector = createSelector({
     selected: [1,2]
 });
 selector.remove(item => item.selected);
-console.log(seletor.state.items) // [3,4]
+console.log(seletor.state.items); // [3,4]
+```
+
+### .select()
+Select items from selector.
+```js
+const selector = createSelector([1,2,3]);
+selector.select([2,3]);
+
+// or with a predicate
+
+const selector = createSelector([1,2,3]);
+selector.select(item => item.value > 1);
+console.log(seletor.state.selected); // [2,3]
+```
+
+### .deselect()
+Deselect items from selector.
+```js
+const selector = createSelector([1,2,3]);
+selector
+    .select([2,3])
+    .deselect(2); // <- ( or [2] )
+
+// or with a predicate
+
+const selector = createSelector([1,2,3]).select([2,3])
+selector.deselect(item => item.value > 1);
+console.log(seletor.state.selected); // []
+```
+
+### .filter()
+Filter items and selections.
+```js
+const selector = createSelector([1,2,3,4,5,6]);
+selector
+    .select([1,2,3])
+    .filter(item => item.value > 2)
+
+console.log(selector.state.items) // [3,4,5,6]
+console.log(selector.state.selected) // [3]
+
+// when unfiltering the "selected" state will be maintained
+selector.filter(item => true);
+
+console.log(selector.state.items) // [1,2,3,4,5,6]
+console.log(selector.state.selected) // [1,2,3]
 ```
