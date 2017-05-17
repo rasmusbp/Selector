@@ -107,47 +107,74 @@ selector.select(1).deselect([1,2]);
 ```
 
 ### .add()
+`.add( item | item[] | iterator ) : instance`
+
 Add items to selector.
 ```js
 const selector = createSelector();
 selector.add([1,2,3]);
 
 // or with an iterator
-
 const selector = createSelector([1,2,3]);
 selector.add(item => item.value * 2);
 console.log(seletor.state.items); // [1,2,3,4,6]
 ```
 ### .remove()
+`.remove( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+
 Remove items from selector.
 ```js
 const selector = createSelector([1,2,3]);
 selector.remove([1,2,3]);
 
 // or with a predicate
-
 const selector = createSelector({
     items: [1,2,3,4],
     selected: [1,2]
 });
 selector.remove(item => item.selected);
 console.log(seletor.state.items); // [3,4]
+
+// or by property in track-by mode
+const selector = createSelector([
+    { id: 'a', name: 'Luke' },
+    { id: 'b', name: 'Han' },
+    { id: 'c', name: 'Leia' },
+], { trackBy: 'id' })
+
+selector.remove(['a', 'b']) 
+
+console.log(seletor.state.items); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .select()
+`.select( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+
 Select items from selector.
 ```js
 const selector = createSelector([1,2,3]);
 selector.select([2,3]);
 
 // or with a predicate
-
 const selector = createSelector([1,2,3]);
 selector.select(item => item.value > 1);
 console.log(seletor.state.selected); // [2,3]
+
+// or by property in track-by mode
+const selector = createSelector([
+    { id: 'a', name: 'Luke' },
+    { id: 'b', name: 'Han' },
+    { id: 'c', name: 'Leia' },
+], { trackBy: 'id' })
+
+selector.select('c') 
+
+console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .deselect()
+`.deselect( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+
 Deselect items from selector.
 ```js
 const selector = createSelector([1,2,3]);
@@ -156,13 +183,27 @@ selector
     .deselect(2); // <- ( or [2] )
 
 // or with a predicate
-
 const selector = createSelector([1,2,3]).select([2,3])
 selector.deselect(item => item.value > 1);
 console.log(seletor.state.selected); // []
+
+// or by property in track-by mode
+const selector = createSelector([
+    { id: 'a', name: 'Luke' },
+    { id: 'b', name: 'Han' },
+    { id: 'c', name: 'Leia' },
+], { trackBy: 'id' })
+
+selector
+    .select(['a', 'b', 'c'])
+    .deselect(['a'. 'b']); 
+
+console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
 ### .filter()
+`.filter( predicate  ) : instance`
+
 Filter items and selections.
 ```js
 const selector = createSelector([1,2,3,4,5,6]);
