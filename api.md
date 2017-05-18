@@ -351,11 +351,10 @@ selector.subscribe((state, change) => {
 selector.remove([2,3]);
 ```
 
+**NOTE:** In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
+
 ```js
-const selector = createSelector({
-    items: [1,2,3],
-    selected: [3]
-});
+const selector = createSelector([1,2,3]);
 
 selector.subscribe(
     (state, change) => {
@@ -368,9 +367,22 @@ selector.subscribe(
 );
 
 selector.add([2,10]);
-```
 
-NOTE: In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
+// ## strict mode
+const selector = createSelector([1,2,3], { strict: true });
+
+selector.subscribe(
+    (state, change) => {
+        // not invoked ... ¯\_(ツ)_/¯
+    },
+    (errors, state) => {
+        errors.forEach(error => error.print()); // <- "/item already exist/, [2]"
+    }
+    
+);
+
+selector.add([2,10]);
+```
 
 [[Back to top](#selector-api)]
 ### .revert()
