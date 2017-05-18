@@ -354,6 +354,7 @@ selector.remove([2,3]);
 **NOTE:** In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
 
 ```js
+// ## default mode
 const selector = createSelector([1,2,3]);
 
 selector.subscribe(
