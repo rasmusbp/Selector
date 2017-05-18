@@ -23,7 +23,7 @@
 
 ### Methods
 ---
-#### createSelector()
+#### createSelector() 
 > `createSelector(initialState?, config?)`
 
 Returns an instance of `Selector`. 
@@ -96,6 +96,7 @@ selector.select([1,9]);
 selector.select(1).deselect([1,2]);
 ```
 
+[[Back to top](#selector-api)]
 ### .add()
 > `.add( item | item[] | iterator ) : instance`
 
@@ -137,6 +138,7 @@ selector.remove(['a', 'b'])
 console.log(seletor.state.items); // [{ id: 'c', name: 'Leia' }]
 ```
 
+[[Back to top](#selector-api)]
 ### .select()
 > `.select( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
@@ -162,6 +164,7 @@ selector.select('c')
 console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
+[[Back to top](#selector-api)]
 ### .deselect()
 > `.deselect( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
@@ -191,6 +194,7 @@ selector
 console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
+[[Back to top](#selector-api)]
 ### .toggle()
 > `.toggle( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
 
@@ -222,6 +226,7 @@ selector
 console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
 
+[[Back to top](#selector-api)]
 ### .filter()
 > `.filter( predicate  ) : instance`
 
@@ -242,6 +247,7 @@ console.log(selector.state.items) // [1,2,3,4,5,6]
 console.log(selector.state.selected) // [1,2,3]
 ```
 
+[[Back to top](#selector-api)]
 ### .invert()
 > `.invert() : instance`
 
@@ -255,6 +261,7 @@ const selector = createSelector({
 console.log(selector.state.selected) // [4,5,6]
 ```
 
+[[Back to top](#selector-api)]
 ### .setState()
 > `.setState( StateLike ) : instance`
 
@@ -275,6 +282,7 @@ console.log(selector.state.items) // [1,2,3,4,5,6]
 console.log(selector.state.selected) // [1,2,3]
 ```
 
+[[Back to top](#selector-api)]
 ### .reset()
 > `.reset() : instance`
 
@@ -298,6 +306,7 @@ console.log(selector.state.items) // ['a','b','c']
 console.log(selector.state.selected) // ['a']
 ```
 
+[[Back to top](#selector-api)]
 ### .applyChange()
 > `.applyChange( ChangeLike ) : instance`
 
@@ -322,6 +331,7 @@ console.log(selector.state.items) // [1,2,3,7,8,9]
 console.log(selector.state.selected) // [1,7,8]
 ```
 
+[[Back to top](#selector-api)]
 ### .subscribe()
 > `.subscribe( observer, errorObserver? ) : instance`
 
@@ -360,6 +370,7 @@ selector.add([2]);
 
 NOTE: In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
 
+[[Back to top](#selector-api)]
 ### .revert()
 > `.revert( Change ) : instance`
 
@@ -387,6 +398,7 @@ console.log(selector.state.items) // [1,2,3,4,5,6]
 console.log(selector.state.selected) // [1,2,3]
 ```
 
+[[Back to top](#selector-api)]
 ### .swap()
 > `.swap(target, newItem) : instance`
 
@@ -411,6 +423,7 @@ selector.swap('b', { id: 'b', name: 'Chewie' });
 console.log(selector.state.items.) // { id: 'a', name: 'Luke' }, { id: 'b', name: 'Chewie' }, ... etc.,
 ```
 
+[[Back to top](#selector-api)]
 ### .every()
 > `.every( predicate  ) : instance`
 
@@ -434,6 +447,7 @@ const allSelected = selector.every(item => item.selected);
 console.log(allSelected); // true
 ```
 
+[[Back to top](#selector-api)]
 ### .some()
 > `.some( predicate  ) : instance`
 
@@ -477,6 +491,7 @@ console.log(firstState === secondState) // false
 console.log(firstState) // { items: [1,2,3], selected: [] }
 ```
 
+[[Back to top](#selector-api)]
 ### .isValid
 > `.isValid`
 
@@ -502,4 +517,4 @@ console.log(selector.isValid) // true, since all validators are truthy
 selector.filter(item => item.value > 99);
 console.log(selector.isValid) // false, since we've filtered out all items that made the validators truthy
 ```
-
+[[Back to top](#selector-api)]
