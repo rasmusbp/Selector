@@ -358,14 +358,16 @@ const selector = createSelector({
 });
 
 selector.subscribe(
-    (state, change) => { /* success */ },
+    (state, change) => {
+        console.log(change); // { add: [10], remove: [], select: [], deselect: [] }
+    },
     (errors, state) => {
-        errors.forEach(error => error.print()); // <- "/item already exist/"
+        errors.forEach(error => error.print()); // <- "/item already exist/, [2]"
     }
     
 );
 
-selector.add([2]);
+selector.add([2,10]);
 ```
 
 NOTE: In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
