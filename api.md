@@ -440,7 +440,7 @@ console.log(selector.state.items.) // { id: 'a', name: 'Luke' }, { id: 'b', name
 
 [[Back to top](#selector-api)]
 ### .every()
-> `.every( predicate  ) : instance`
+> `.every( predicate  ) : boolean`
 
 Check if all items meet specified condition(s).
 
@@ -464,7 +464,7 @@ console.log(allSelected); // true
 
 [[Back to top](#selector-api)]
 ### .some()
-> `.some( predicate  ) : instance`
+> `.some( predicate  ) : boolean`
 
 Check if some items meet specified condition(s).
 
@@ -483,7 +483,7 @@ console.log(someBigSelected); // true
 ---
 
 ### .state
-> `.state`
+> `.state : StateObject`
 
 Yields the current state. When the state changes it yields a new state object.
 
@@ -508,7 +508,7 @@ console.log(firstState) // { items: [1,2,3], selected: [] }
 
 [[Back to top](#selector-api)]
 ### .isValid
-> `.isValid`
+> `.isValid : boolean`
 
 Yields the current validity of the selector.
 The validity is determined by the validators provided at construction.
