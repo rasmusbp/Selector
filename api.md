@@ -9,19 +9,17 @@
     - [.toggle()](#toggle)
     - [.filter()](#filter)
     - [.invert()](#invert)
-    - [.revert()](#reset)
     - [.setState()](#setstate)
-    - [.applyChange()](#applychange)
     - [.reset()](#reset)
-    - [.swap()](#swap)
+    - [.applyChange()](#applychange)
     - [.subscribe()](#subscribe)
-    - [.isSelected()](#isselected)
-    - [.has()](#has)
+    - [.revert()](#revert)
+    - [.swap()](#swap)
     - [.every()](#every)
     - [.some()](#some)
 - [properties](#properties)
-    - [.isValid](#isvalid)
     - [.state](#state)
+    - [.isValid](#isvalid)
 
 ### Methods
 ---
@@ -29,7 +27,7 @@
 > `createSelector(initialState?, config?)`
 
 Returns an instance of `Selector`. 
-Can be invoked with an initial state and/or with a configuration.
+Can be invoked with an optional initial state and with a configuration.
 ```js
 // array describing initial state
 const selector = createSelector([1,2,3,4]);
@@ -72,7 +70,7 @@ providers: Object {
 }
 ```
 
-In `debug` mode you'll get warnings in the console when trying to perform redundant actions. I.e adding already existing items. In `strict` mode no action will be performed if one an invalid state change is attempted.
+In `debug` mode you'll get warnings in the console when trying to perform redundant actions. I.e adding already existing items. In `strict` mode no state change will be applied if there's an invalid state change attempted. See below for examples.
 
 ```js
 // ## debug mode
@@ -188,7 +186,38 @@ const selector = createSelector([
 
 selector
     .select(['a', 'b', 'c'])
-    .deselect(['a'. 'b']); 
+    .deselect(['a', 'b']); 
+
+console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
+```
+
+### .toggle()
+> `.toggle( item | item[] | trackByProp | trackByProp[] | predicate  ) : instance`
+
+Toggle selection of items from selector.
+```js
+const selector = createSelector([1,2,3]);
+selector
+    .select([2,3])
+    .toggle([1,2,3]);
+
+console.log(seletor.state.selected); // [1]
+
+// or with a predicate
+const selector = createSelector([1,2,3]).select([2,3])
+selector.toggle(item => item.value > 0);
+console.log(seletor.state.selected); // [1]
+
+// or by property in track-by mode
+const selector = createSelector([
+    { id: 'a', name: 'Luke' },
+    { id: 'b', name: 'Han' },
+    { id: 'c', name: 'Leia' },
+], { trackBy: 'id' })
+
+selector
+    .select(['a', 'b'])
+    .toggle(['a', 'b', 'c']); 
 
 console.log(seletor.state.selected); // [{ id: 'c', name: 'Leia' }]
 ```
@@ -211,5 +240,266 @@ selector.filter(item => true);
 
 console.log(selector.state.items) // [1,2,3,4,5,6]
 console.log(selector.state.selected) // [1,2,3]
+```
+
+### .invert()
+> `.invert() : instance`
+
+Invert current state.
+```js
+const selector = createSelector({
+    items: [1,2,3,4,5,6],
+    selected: [1,2,3]
+});
+
+console.log(selector.state.selected) // [4,5,6]
+```
+
+### .setState()
+> `.setState( StateLike ) : instance`
+
+Set a new state. 
+Will overwrite previous state.
+```js
+const selector = createSelector({
+    items: ['a','b','c'],
+    selected: ['a']
+});
+
+selector.setState({
+    items: [1,2,3,4,5,6],
+    selected: [1,2,3]
+});
+
+console.log(selector.state.items) // [1,2,3,4,5,6]
+console.log(selector.state.selected) // [1,2,3]
+```
+
+### .reset()
+> `.reset() : instance`
+
+Reset state to initial state.
+```js
+const selector = createSelector({
+    items: ['a','b','c'],
+    selected: ['a']
+});
+
+selector.select('c');
+
+selector.setState({
+    items: [1,2,3,4,5,6],
+    selected: [1,2,3]
+});
+
+selector.reset();
+
+console.log(selector.state.items) // ['a','b','c']
+console.log(selector.state.selected) // ['a']
+```
+
+### .applyChange()
+> `.applyChange( ChangeLike ) : instance`
+
+Apply a change set to the selector.
+A change set is a patch object describing the main actions:
+
+`add, remove, select and deselect`.
+```js
+const selector = createSelector({
+    items: [1,2,3,4,5,6],
+    selected: [1,2,3]
+});
+
+selector.applyChange({
+    add: [7,8,9,10],
+    remove: item => item.value > 3,
+    select: [7,8],
+    deselect: [2,3]
+});
+
+console.log(selector.state.items) // [1,2,3,7,8,9]
+console.log(selector.state.selected) // [1,7,8]
+```
+
+### .subscribe()
+> `.subscribe( observer, errorObserver? ) : instance`
+
+Subscribe to state changes on the instance.
+
+```js
+const selector = createSelector({
+    items: [1,2,3],
+    selected: [3]
+});
+
+selector.subscribe((state, change) => {
+    console.log(state); // <- current state
+    console.log(change); // { add: [], remove: [2,3], select: [], deselect: [3] }
+});
+
+selector.remove([2,3]);
+```
+
+```js
+const selector = createSelector({
+    items: [1,2,3],
+    selected: [3]
+});
+
+selector.subscribe(
+    (state, change) => { /* success */ },
+    (errors, state) => {
+        errors.forEach(error => error.print()); // <- "/item already exist/"
+    }
+    
+);
+
+selector.add([2]);
+```
+
+NOTE: In `strict` mode only the error observer will invoke if invalid changes are attempted. In `default` mode both observers will be invoked.
+
+### .revert()
+> `.revert( Change ) : instance`
+
+Revert provided change set.
+
+```js
+const selector = createSelector({
+    items: [1,2,3,4,5,6],
+    selected: [1,2,3]
+});
+
+let lastestChange;
+selector.subscribe((state, change) => {
+    lastestChange = change;
+});
+
+selector.remove([1,2,3]);
+
+console.log(selector.state.items) // [4,5,6]
+console.log(selector.state.selected) // []
+
+selector.revert(lastestChange);
+
+console.log(selector.state.items) // [1,2,3,4,5,6]
+console.log(selector.state.selected) // [1,2,3]
+```
+
+### .swap()
+> `.swap(target, newItem) : instance`
+
+Swap an existing item for a new item.
+Very useful if working with immutable data structures.
+
+```js
+const selector = createSelector([1,2,3]);
+
+selector.swap(2, 42);
+console.log(selector.state.items) // [1,42,3]
+
+// or by property in track-by mode
+const selector = createSelector([
+    { id: 'a', name: 'Luke' },
+    { id: 'b', name: 'Han' },
+    { id: 'c', name: 'Leia' },
+], { trackBy: 'id' });
+
+
+selector.swap('b', { id: 'b', name: 'Chewie' });
+console.log(selector.state.items.) // { id: 'a', name: 'Luke' }, { id: 'b', name: 'Chewie' }, ... etc.,
+```
+
+### .every()
+> `.every( predicate  ) : instance`
+
+Check if all items meet specified condition(s).
+
+```js
+const selector = createSelector([1,2,3, 100, 200, 300]);
+selector.select([100,200]);
+
+// check if certain items are selected
+const allBigSelected = selector.every(item => {
+    return item.value > 99 ? item.selected : true;
+});
+
+console.log(allBigSelected); // false, since 300 is not selected.
+
+// check if all items are selected
+selector.select(selector.state.items);
+const allSelected = selector.every(item => item.selected);
+
+console.log(allSelected); // true
+```
+
+### .some()
+> `.some( predicate  ) : instance`
+
+Check if some items meet specified condition(s).
+
+```js
+const selector = createSelector([1,2,3, 100, 200, 300]);
+selector.select([100,200]);
+
+const someBigSelected = selector.some(item => {
+    return item.value > 99 ? item.selected : false;
+});
+
+console.log(someBigSelected); // true
+```
+
+### Properties
+---
+
+### .state
+> `.state`
+
+Yields the current state. When the state changes it yields a new state object.
+
+```js
+const selector = createSelector([1,2,3]);
+
+const firstState = selector.state;
+
+console.log(firstState) // { items: [1,2,3], selected: [] }
+
+// state hasn't changed so each `get` will yield the same object
+console.log(firstState === selector.state) // true
+
+// state changes
+selector.select([1,2]);
+
+const secondState = selector.state;
+console.log(secondState) // { items: [1,2,3], selected: [1,2] }
+console.log(firstState === secondState) // false
+console.log(firstState) // { items: [1,2,3], selected: [] }
+```
+
+### .isValid
+> `.isValid`
+
+Yields the current validity of the selector.
+The validity is determined by the validators provided at construction.
+
+```js
+const selector = createSelector([1,2,3], {
+    validators: [
+        /* 1. */ state => state.selected.length > 0,
+        /* 2. */ (state, slc) => slc.some(item => item.value > 10)
+    ]
+});
+
+console.log(selector.isValid) // false, since both 1. and 2. are falsy
+
+selector.select(1);
+console.log(selector.isValid) // false, since only 1. is truthy
+
+selector.add([15]);
+console.log(selector.isValid) // true, since all validators are truthy
+
+selector.filter(item => item.value > 99);
+console.log(selector.isValid) // false, since we've filtered out all items that made the validators truthy
 ```
 

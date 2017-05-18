@@ -436,7 +436,6 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return this;
     }
 
-
     some (predicate : Slc.Predicate<T,P>) {
         const { stateMap, getPredicateArgs } = internals.get(this);
         let someTrue = false;
@@ -465,6 +464,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return allTrue;
     }
 
+    // TODO: consider removing;
     isSelected (input : T | T[] | P | P[] | Slc.Predicate<T,P>) : boolean {
         const { resolveItemsWith, resolverFor, isSelected, log } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.getting, input, 'isSelected');
@@ -473,6 +473,7 @@ class Selector <T,P> implements Slc.Selector<T,P> {
         return !!hits.length && hits.every(isSelected);
     }
 
+    // TODO: consider removing;
     has (input : T | T[] | P | P[] | Slc.Predicate<T,P>) : boolean {
         const { resolveItemsWith, resolverFor, has } = internals.get(this);
         const { hits, errors } = resolveItemsWith(resolverFor.all, input);
